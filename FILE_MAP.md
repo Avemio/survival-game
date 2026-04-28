@@ -21,14 +21,14 @@
 ## entities/
 | File | Purpose |
 |------|---------|
-| `entities/player.py` | Player class — movement, stats, state (health, resources), input handling |
-| `entities/enemy.py` | Base enemy class — AI hooks, stats, combat interface |
+| `entities/player.py` | Player class — movement, physics, facing direction, attack cooldown, collision resolution |
+| `entities/enemy.py` | Enemy class — health, hit-flash timer, take_damage(), alive flag; no AI yet |
 | `entities/npc.py` | Town NPCs — dialogue triggers, shop interface |
 
 ## systems/
 | File | Purpose |
 |------|---------|
-| `systems/combat.py` | Attack resolution, hit detection, damage calculation, knockback |
+| `systems/combat.py` | AttackHitbox — temporary rect spawned on swing, already_hit set prevents multi-hit, expires after ATTACK_DURATION |
 | `systems/inventory.py` | Item storage, equipping, hotbar logic |
 | `systems/crafting.py` | Crafting recipes, resource consumption validation |
 | `systems/saving.py` | Save/load game state, heal-to-full at save points |

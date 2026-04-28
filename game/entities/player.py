@@ -13,7 +13,8 @@ Physics model:
 import pygame
 from game.settings import (
     PLAYER_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_COLOR,
-    GRAVITY, JUMP_FORCE, JUMP_HOLD_FORCE, MAX_JUMP_TIME, MAX_FALL_SPEED
+    GRAVITY, JUMP_FORCE, JUMP_HOLD_FORCE, MAX_JUMP_TIME, MAX_FALL_SPEED,
+    ATTACK_COOLDOWN
 )
 
 
@@ -28,6 +29,11 @@ class Player:
         self.jump_held  = False   # True while space is held after a jump
         self.jump_time  = 0.0     # seconds the jump extension has been active
 
+        # Combat state
+        self.facing          = 1      # 1 = right, -1 = left
+        self.attack_cooldown = 0.0    # counts down to 0; can attack when 0
+        self.active_hitbox   = None   # set by attack(); cleared by engine
+
     # ------------------------------------------------------------------
     # Input
     # ------------------------------------------------------------------
@@ -39,8 +45,20 @@ class Player:
         self.velocity.x = 0
         if keys[pygame.K_LEFT]  or keys[pygame.K_a]:
             self.velocity.x = -PLAYER_SPEED
+            self.facing     = -1
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.velocity.x =  PLAYER_SPEED
+            self.facing     =  1
+
+        # Attack — Z key, only when cooldown is done and no hitbox already active
+        if keys[pygame.K_z] and self.attack_cooldown <= 0 and self.active_hitbox is None:
+            self.attack_cooldown = ATTACK_COOLDOWN
+            # Hitbox is created here and handed back to the engine via active_hitbox.
+            # Import is local to avoid a circular dependency (systems imports settings,
+            # player imports settings — fine; but player importing systems would
+            # create a cycle if systems ever imports player).
+            from game.systems.combat import AttackHitbox
+            self.active_hitbox = AttackHitbox(self)
 
         # Jump
         jump_key = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
@@ -104,6 +122,10 @@ class Player:
     # ------------------------------------------------------------------
 
     def update(self, dt, platforms):
+        # Tick cooldown
+        if self.attack_cooldown > 0:
+            self.attack_cooldown -= dt
+
         self.handle_input(dt)
         self.apply_gravity(dt)
 

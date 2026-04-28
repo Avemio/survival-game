@@ -10,9 +10,10 @@ import sys
 import pygame
 
 from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
-                                   BG_COLOR, PLATFORM_COLOR)
+                                   BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR)
 from game.core.camera     import Camera
 from game.entities.player import Player
+from game.entities.enemy  import Enemy
 
 
 # Temporary platforms for M2 testing.
@@ -37,8 +38,15 @@ class Engine:
         self.running = True
 
         # Spawn player above the ground platform
-        self.player = Player(x=200, y=580)
-        self.camera = Camera()
+        self.player  = Player(x=200, y=580)
+        self.camera  = Camera()
+
+        # Test enemies for M3 — replaced by zone data in a later milestone
+        self.enemies = [
+            Enemy(x=500,  y=600),
+            Enemy(x=800,  y=600),
+            Enemy(x=1100, y=600),
+        ]
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -50,6 +58,27 @@ class Engine:
 
     def update(self, dt):
         self.player.update(dt, PLATFORMS)
+
+        # Update enemies
+        for enemy in self.enemies:
+            enemy.update(dt)
+
+        # Combat resolution — hitbox vs every enemy
+        hitbox = self.player.active_hitbox
+        if hitbox:
+            hitbox.update(dt)
+            for enemy in self.enemies:
+                if (enemy not in hitbox.already_hit
+                        and hitbox.rect.colliderect(enemy.rect)):
+                    enemy.take_damage(hitbox.damage)
+                    hitbox.already_hit.add(enemy)
+            # Clear hitbox once it expires
+            if hitbox.expired:
+                self.player.active_hitbox = None
+
+        # Remove dead enemies
+        self.enemies = [e for e in self.enemies if e.alive]
+
         self.camera.update(self.player.rect)
 
     def draw(self):
@@ -59,8 +88,18 @@ class Engine:
         for p in PLATFORMS:
             pygame.draw.rect(self.screen, PLATFORM_COLOR, self.camera.apply(p))
 
+        # Draw enemies
+        for enemy in self.enemies:
+            enemy.draw(self.screen, self.camera)
+
         # Draw player on top
         self.player.draw(self.screen, self.camera)
+
+        # Draw attack hitbox outline (debug — remove when sprites exist)
+        hitbox = self.player.active_hitbox
+        if hitbox:
+            pygame.draw.rect(self.screen, ATTACK_COLOR,
+                             self.camera.apply(hitbox.rect), 2)
 
         pygame.display.flip()
 
