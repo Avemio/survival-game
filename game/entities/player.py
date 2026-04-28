@@ -16,6 +16,7 @@ from game.settings import (
     GRAVITY, JUMP_FORCE, JUMP_HOLD_FORCE, MAX_JUMP_TIME, MAX_FALL_SPEED,
     ATTACK_COOLDOWN
 )
+from game.systems.combat import AttackHitbox
 
 
 class Player:
@@ -53,12 +54,7 @@ class Player:
         # Attack — Z key, only when cooldown is done and no hitbox already active
         if keys[pygame.K_z] and self.attack_cooldown <= 0 and self.active_hitbox is None:
             self.attack_cooldown = ATTACK_COOLDOWN
-            # Hitbox is created here and handed back to the engine via active_hitbox.
-            # Import is local to avoid a circular dependency (systems imports settings,
-            # player imports settings — fine; but player importing systems would
-            # create a cycle if systems ever imports player).
-            from game.systems.combat import AttackHitbox
-            self.active_hitbox = AttackHitbox(self)
+            self.active_hitbox   = AttackHitbox(self)
 
         # Jump
         jump_key = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]

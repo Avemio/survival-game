@@ -13,9 +13,18 @@ from game.settings import (
 
 
 class Enemy:
-    def __init__(self, x, y):
-        self.rect        = pygame.Rect(x, y, ENEMY_WIDTH, ENEMY_HEIGHT)
-        self.health      = ENEMY_HEALTH
+    def __init__(self, x, y, stats=None):
+        """
+        stats — optional dict from enemies.json, e.g. {"health": 100, "width": 40, "height": 60}
+                Any missing key falls back to the settings.py constant, so Enemy(x, y)
+                still works fine for quick tests without a data file.
+        """
+        stats = stats or {}
+        w = stats.get("width",  ENEMY_WIDTH)
+        h = stats.get("height", ENEMY_HEIGHT)
+
+        self.rect        = pygame.Rect(x, y, w, h)
+        self.health      = stats.get("health", ENEMY_HEALTH)
         self.alive       = True
         self.hit_flash   = 0.0     # countdown in seconds; >0 means flashing white
 

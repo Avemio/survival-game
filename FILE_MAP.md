@@ -36,9 +36,8 @@
 ## world/
 | File | Purpose |
 |------|---------|
-| `world/world.py` | Master world — zone order, loads/unloads zones, tracks player position in world |
-| `world/zone.py` | Base zone class — shared logic for all area types (platforms, entities, triggers) |
-| `world/zones/zone_01_start.py` | Opening area — tutorial zone, story intro |
+| `world/world.py` | Owns the active zone + enemy type registry; engine talks here, not to Zone directly |
+| `world/zone.py` | Loads a single zone JSON file; builds platforms list and enemies list |
 
 ## ui/
 | File | Purpose |
@@ -50,9 +49,9 @@
 ## data/
 | File | Purpose |
 |------|---------|
-| `data/enemies.json` | Enemy type definitions — stats, behavior flags, drop tables |
-| `data/items.json` | All item definitions — properties, crafting recipes |
-| `data/world.json` | Zone order, story beat triggers, world metadata |
+| `data/enemies.json` | Enemy type definitions — health, size, (later: speed, damage, drops) |
+| `data/zones/zone_01.json` | First zone — platforms, enemy spawns, player spawn point |
+| `data/items.json` | All item definitions — properties, crafting recipes (future) |
 
 ## assets/
 | Folder | Purpose |

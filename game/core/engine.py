@@ -1,9 +1,8 @@
 """
 core/engine.py
 The main game loop. Owns the screen, clock, and top-level update/draw calls.
-Knows about the current scene's objects (player, camera, platforms) — this will
-be handed off to scene_manager.py in a later milestone when scenes exist.
-Does NOT own: game logic, combat, world data.
+Talks to World for all zone content — platforms, enemies, spawn point.
+Does NOT own: game logic, combat, zone data.
 """
 
 import sys
@@ -13,20 +12,7 @@ from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
                                    BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR)
 from game.core.camera     import Camera
 from game.entities.player import Player
-from game.entities.enemy  import Enemy
-
-
-# Temporary platforms for M2 testing.
-# Replaced by real zone data when world loading is implemented (M5).
-# Ground spans the full world width so the player always has somewhere to land.
-PLATFORMS = [
-    pygame.Rect(0,    660, 10000, 60),   # ground — full world width
-    pygame.Rect(300,  540, 200,   20),   # floating platform
-    pygame.Rect(600,  460, 180,   20),   # higher platform
-    pygame.Rect(900,  380, 160,   20),   # even higher
-    pygame.Rect(1200, 460, 200,   20),   # back down
-    pygame.Rect(1500, 540, 250,   20),   # near ground again
-]
+from game.world.world     import World
 
 
 class Engine:
@@ -37,16 +23,15 @@ class Engine:
         self.clock   = pygame.time.Clock()
         self.running = True
 
-        # Spawn player above the ground platform
-        self.player  = Player(x=200, y=580)
-        self.camera  = Camera()
+        # Load the first zone through World
+        self.world   = World("zone_01")
 
-        # Test enemies for M3 — replaced by zone data in a later milestone
-        self.enemies = [
-            Enemy(x=500,  y=600),
-            Enemy(x=800,  y=600),
-            Enemy(x=1100, y=600),
-        ]
+        # Direct references to the zone's lists — kept in sync via in-place mutation
+        self.platforms = self.world.platforms
+        self.enemies   = self.world.enemies
+
+        self.player  = Player(*self.world.spawn)
+        self.camera  = Camera()
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -57,7 +42,7 @@ class Engine:
                     self.running = False
 
     def update(self, dt):
-        self.player.update(dt, PLATFORMS)
+        self.player.update(dt, self.platforms)
 
         # Update enemies
         for enemy in self.enemies:
@@ -76,8 +61,8 @@ class Engine:
             if hitbox.expired:
                 self.player.active_hitbox = None
 
-        # Remove dead enemies
-        self.enemies = [e for e in self.enemies if e.alive]
+        # Remove dead enemies — in-place so self.world.enemies stays in sync
+        self.enemies[:] = [e for e in self.enemies if e.alive]
 
         self.camera.update(self.player.rect)
 
@@ -85,7 +70,7 @@ class Engine:
         self.screen.fill(BG_COLOR)
 
         # Draw platforms
-        for p in PLATFORMS:
+        for p in self.platforms:
             pygame.draw.rect(self.screen, PLATFORM_COLOR, self.camera.apply(p))
 
         # Draw enemies
