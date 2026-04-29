@@ -21,6 +21,10 @@ class World:
             self._enemy_types = json.load(f)
         with open(_DATA_DIR / "items.json") as f:
             self._item_defs = json.load(f)
+        with open(_DATA_DIR / "npcs.json") as f:
+            self._npc_types = json.load(f)
+        with open(_DATA_DIR / "dialogue.json") as f:
+            self._dialogue_data = json.load(f)
 
         self.zone = self._load_zone(zone_id)
 
@@ -30,7 +34,8 @@ class World:
 
     def _load_zone(self, zone_id):
         path = _DATA_DIR / "zones" / f"{zone_id}.json"
-        return Zone(path, self._enemy_types, self._item_defs)
+        return Zone(path, self._enemy_types, self._item_defs,
+                    self._npc_types, self._dialogue_data)
 
     # Zone transitions go here in M9:
     # def transition_to(self, zone_id):
@@ -63,3 +68,7 @@ class World:
     @property
     def item_drops(self):
         return self.zone.item_drops
+
+    @property
+    def npcs(self):
+        return self.zone.npcs

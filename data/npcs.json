@@ -1,0 +1,8 @@
+{
+  "villager": {
+    "name":   "Villager",
+    "color":  [220, 190, 130],
+    "width":  28,
+    "height": 52
+  }
+}

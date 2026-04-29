@@ -17,6 +17,7 @@ from game.entities.item_drop import ItemDrop
 from game.world.world        import World
 from game.ui.hud             import HUD
 from game.ui.menus           import CraftingMenu
+from game.ui.dialogue        import DialogueBox
 from game.systems.saving     import save_game, load_game
 from game.systems.crafting   import CraftingSystem
 
@@ -38,6 +39,7 @@ class Engine:
         self.enemies     = self.world.enemies
         self.save_points = self.world.save_points
         self.item_drops  = self.world.item_drops
+        self.npcs        = self.world.npcs
 
         # Indices of zone drops the player has already collected (persists across loads)
         self.collected_zone_drops = set()
@@ -66,10 +68,11 @@ class Engine:
             if d.zone_drop_index not in self.collected_zone_drops
         ]
 
-        self.camera   = Camera()
-        self.hud      = HUD(self.player)
-        self.crafting = CraftingSystem()
+        self.camera        = Camera()
+        self.hud           = HUD(self.player)
+        self.crafting      = CraftingSystem()
         self.crafting_menu = CraftingMenu(self.player, self.crafting)
+        self.dialogue_box  = DialogueBox()
 
         # Pre-warm save point overlap state — prevents a flash trigger if the
         # player spawns directly on top of a save point (e.g. after loading a save)
@@ -89,17 +92,28 @@ class Engine:
                         self.running = False
 
                 elif event.key == pygame.K_c:
-                    self.crafting_menu.toggle()
+                    if not self.dialogue_box.open:
+                        self.crafting_menu.toggle()
 
-                # Forward navigation keys to the menu while it's open
+                elif event.key == pygame.K_e:
+                    if self.dialogue_box.open:
+                        self.dialogue_box.advance()
+                    else:
+                        # Start dialogue if the player is within interact range of an NPC
+                        for npc in self.npcs:
+                            if npc._interact_rect.colliderect(self.player.rect):
+                                self.dialogue_box.start(npc.name, npc.dialogue_lines)
+                                break
+
+                # Forward navigation keys to the crafting menu while it's open
                 if self.crafting_menu.open:
                     self.crafting_menu.handle_event(event)
 
     def update(self, dt):
         self.crafting_menu.update(dt)
 
-        # Pause all world simulation while the crafting menu is open
-        if self.crafting_menu.open:
+        # Pause all world simulation while any overlay is open
+        if self.crafting_menu.open or self.dialogue_box.open:
             return
 
         self.player.update(dt, self.platforms)
@@ -183,6 +197,10 @@ class Engine:
         for drop in self.item_drops:
             drop.draw(self.screen, self.camera)
 
+        # Draw NPCs
+        for npc in self.npcs:
+            npc.draw(self.screen, self.camera, self.player.rect)
+
         # Draw enemies
         for enemy in self.enemies:
             enemy.draw(self.screen, self.camera)
@@ -201,6 +219,9 @@ class Engine:
 
         # Crafting menu — drawn over HUD when open
         self.crafting_menu.draw(self.screen)
+
+        # Dialogue box — drawn over everything when open
+        self.dialogue_box.draw(self.screen)
 
         pygame.display.flip()
 

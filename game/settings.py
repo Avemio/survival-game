@@ -69,6 +69,13 @@ GREEN          = (50,  200, 50)
 SAVE_POINT_COLOR        = (80,  200, 180)   # teal — idle
 SAVE_POINT_ACTIVE_COLOR = (200, 255, 240)   # bright teal — flash on save
 
+# Dialogue box
+DIALOGUE_PANEL_BG     = (18,  18,  28)
+DIALOGUE_PANEL_BORDER = (90,  90,  120)
+DIALOGUE_NAME_COLOR   = (220, 200, 80)    # yellow — speaker name
+DIALOGUE_TEXT_COLOR   = (220, 220, 230)   # near-white — body text
+DIALOGUE_HINT_COLOR   = (110, 110, 130)   # muted — "E Continue" hint
+
 # Crafting menu
 CRAFT_PANEL_W          = 440
 CRAFT_PANEL_H          = 420

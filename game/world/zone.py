@@ -11,6 +11,7 @@ import pygame
 from pathlib import Path
 from game.entities.enemy     import Enemy
 from game.entities.item_drop import ItemDrop
+from game.entities.npc       import NPC
 from game.settings import SAVE_POINT_COLOR, SAVE_POINT_ACTIVE_COLOR
 
 
@@ -32,22 +33,25 @@ class SavePoint:
 
 
 class Zone:
-    def __init__(self, path, enemy_types, item_defs):
+    def __init__(self, path, enemy_types, item_defs, npc_types, dialogue_data):
         """
-        path        — pathlib.Path to the zone's JSON file
-        enemy_types — dict from data/enemies.json
-        item_defs   — dict from data/items.json (used for item drop colors)
+        path          — pathlib.Path to the zone's JSON file
+        enemy_types   — dict from data/enemies.json
+        item_defs     — dict from data/items.json (used for item drop colors)
+        npc_types     — dict from data/npcs.json
+        dialogue_data — dict from data/dialogue.json
         """
         self.id          = "unknown"
         self.platforms   = []
         self.enemies     = []
         self.save_points = []
         self.item_drops  = []
+        self.npcs        = []
         self.spawn       = (200, 580)
 
-        self._load(Path(path), enemy_types, item_defs)
+        self._load(Path(path), enemy_types, item_defs, npc_types, dialogue_data)
 
-    def _load(self, path, enemy_types, item_defs):
+    def _load(self, path, enemy_types, item_defs, npc_types, dialogue_data):
         with open(path) as f:
             data = json.load(f)
 
@@ -73,3 +77,8 @@ class Zone:
             drop  = ItemDrop(d["x"], d["y"], d["item_id"], d["quantity"], color)
             drop.zone_drop_index = i   # marks this as a persistent zone drop
             self.item_drops.append(drop)
+
+        for n in data.get("npcs", []):
+            npc_def = npc_types.get(n["type"], {})
+            lines   = dialogue_data.get(n["dialogue_id"], [])
+            self.npcs.append(NPC(n["x"], n["y"], npc_def, lines))
