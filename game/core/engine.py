@@ -63,28 +63,30 @@ class Engine:
 
     def update(self, dt):
         self.player.update(dt, self.platforms)
+        self._update_enemies(dt)
+        self._update_combat(dt)
+        self._update_save_points(dt)
+        self.camera.update(self.player.rect)
 
-        # Update enemies
+    def _update_enemies(self, dt):
         for enemy in self.enemies:
             enemy.update(dt)
-
-        # Combat resolution — hitbox vs every enemy
-        hitbox = self.player.active_hitbox
-        if hitbox:
-            hitbox.update(dt)
-            for enemy in self.enemies:
-                if (enemy not in hitbox.already_hit
-                        and hitbox.rect.colliderect(enemy.rect)):
-                    enemy.take_damage(hitbox.damage)
-                    hitbox.already_hit.add(enemy)
-            # Clear hitbox once it expires
-            if hitbox.expired:
-                self.player.active_hitbox = None
-
-        # Remove dead enemies — in-place so self.world.enemies stays in sync
         self.enemies[:] = [e for e in self.enemies if e.alive]
 
-        # Save point collision — trigger only on the frame the player enters
+    def _update_combat(self, dt):
+        hitbox = self.player.active_hitbox
+        if not hitbox:
+            return
+        hitbox.update(dt)
+        for enemy in self.enemies:
+            if (enemy not in hitbox.already_hit
+                    and hitbox.rect.colliderect(enemy.rect)):
+                enemy.take_damage(hitbox.damage)
+                hitbox.already_hit.add(enemy)
+        if hitbox.expired:
+            self.player.active_hitbox = None
+
+    def _update_save_points(self, dt):
         for sp in self.save_points:
             sp.update(dt)
             overlapping = sp.rect.colliderect(self.player.rect)
@@ -93,8 +95,6 @@ class Engine:
                 save_game(self.player, self.world.zone_id)
                 sp.flash_timer = sp.FLASH_DURATION
             sp.was_overlapping = overlapping
-
-        self.camera.update(self.player.rect)
 
     def draw(self):
         self.screen.fill(BG_COLOR)

@@ -2,7 +2,7 @@
 entities/player.py
 The player entity — position, movement, physics, and input handling.
 Owns: rect, velocity, gravity, variable jump, collision resolution, drawing.
-Does NOT own: combat (M4), inventory (M8), animation (later).
+Does NOT own: combat (systems/combat.py), inventory (M7), animation (later).
 
 Physics model:
   - Float position (self.pos) drives movement; rect snaps to it each frame.
@@ -40,7 +40,16 @@ class Player:
         self.active_hitbox   = None   # set by attack(); cleared by engine
 
         # Hotbar — tracks selected slot; items added in M7
-        self.hotbar_slot = 0          # index of the currently selected slot (0 to HOTBAR_SLOTS-1)
+        self._hotbar_slot = 0   # backing value; use the property to set safely
+
+    @property
+    def hotbar_slot(self):
+        return self._hotbar_slot
+
+    @hotbar_slot.setter
+    def hotbar_slot(self, value):
+        # Clamp to valid range so nothing can put the selection out of bounds
+        self._hotbar_slot = max(0, min(HOTBAR_SLOTS - 1, value))
 
     # ------------------------------------------------------------------
     # Input

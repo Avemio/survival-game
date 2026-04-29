@@ -6,7 +6,7 @@ Does NOT own: when to save (engine decides), healing logic (engine does that bef
 
 Save format:
   {
-    "zone":   "zone_01_start",
+    "zone":   "zone_01",
     "player": {"x": 200, "y": 580, "health": 100}
   }
 """
