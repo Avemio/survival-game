@@ -1,0 +1,28 @@
+{
+  "wood": {
+    "name":      "Wood",
+    "color":     [139, 90,  43],
+    "stackable": true,
+    "max_stack": 99
+  },
+  "stone": {
+    "name":      "Stone",
+    "color":     [150, 150, 150],
+    "stackable": true,
+    "max_stack": 99
+  },
+  "herb": {
+    "name":      "Herb",
+    "color":     [60,  200, 80],
+    "stackable": true,
+    "max_stack": 30
+  },
+  "health_potion": {
+    "name":       "Health Potion",
+    "color":      [220, 50,  50],
+    "stackable":  true,
+    "max_stack":  10,
+    "use":        "heal",
+    "heal_amount": 30
+  }
+}

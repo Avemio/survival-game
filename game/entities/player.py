@@ -2,7 +2,7 @@
 entities/player.py
 The player entity — position, movement, physics, and input handling.
 Owns: rect, velocity, gravity, variable jump, collision resolution, drawing.
-Does NOT own: combat (systems/combat.py), inventory (M7), animation (later).
+Does NOT own: combat (systems/combat.py), crafting (M7C), animation (later).
 
 Physics model:
   - Float position (self.pos) drives movement; rect snaps to it each frame.
@@ -16,7 +16,8 @@ from game.settings import (
     GRAVITY, JUMP_FORCE, JUMP_HOLD_FORCE, MAX_JUMP_TIME, MAX_FALL_SPEED,
     ATTACK_COOLDOWN, PLAYER_MAX_HEALTH, HOTBAR_SLOTS
 )
-from game.systems.combat import AttackHitbox
+from game.systems.combat    import AttackHitbox
+from game.systems.inventory import Inventory
 
 
 class Player:
@@ -39,8 +40,13 @@ class Player:
         self.attack_cooldown = 0.0    # counts down to 0; can attack when 0
         self.active_hitbox   = None   # set by attack(); cleared by engine
 
-        # Hotbar — tracks selected slot; items added in M7
+        # Inventory + hotbar
+        self.inventory    = Inventory(size=HOTBAR_SLOTS)
         self._hotbar_slot = 0   # backing value; use the property to set safely
+
+        # Seed with test items so hotbar is visible before M7B adds real drops
+        self.inventory.add("wood",  5)
+        self.inventory.add("stone", 3)
 
     @property
     def hotbar_slot(self):
@@ -66,6 +72,14 @@ class Player:
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.velocity.x =  PLAYER_SPEED
             self.facing     =  1
+
+        # Hotbar slot selection — number keys 1-8 map to slots 0-7
+        _hotbar_keys = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4,
+                        pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
+        for i, key in enumerate(_hotbar_keys):
+            if keys[key]:
+                self.hotbar_slot = i
+                break
 
         # Attack — Z key, only when cooldown is done and no hitbox already active
         if keys[pygame.K_z] and self.attack_cooldown <= 0 and self.active_hitbox is None:

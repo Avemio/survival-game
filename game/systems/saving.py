@@ -7,7 +7,10 @@ Does NOT own: when to save (engine decides), healing logic (engine does that bef
 Save format:
   {
     "zone":   "zone_01",
-    "player": {"x": 200, "y": 580, "health": 100}
+    "player": {
+      "x": 200, "y": 580, "health": 100,
+      "inventory": [{"item_id": "wood", "quantity": 5}, null, ...]
+    }
   }
 """
 
@@ -25,9 +28,10 @@ def save_game(player, zone_id):
     data = {
         "zone": zone_id,
         "player": {
-            "x":      player.rect.x,
-            "y":      player.rect.y,
-            "health": player.max_health   # always save at full health
+            "x":         player.rect.x,
+            "y":         player.rect.y,
+            "health":    player.max_health,   # always save at full health
+            "inventory": player.inventory.serialize()
         }
     }
     with open(_SAVE_PATH, "w") as f:

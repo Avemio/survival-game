@@ -45,6 +45,10 @@ class Engine:
             self.player.pos.y        = py
             self.player.health       = save_data["player"]["health"]
 
+            inv_data = save_data["player"].get("inventory")
+            if inv_data:
+                self.player.inventory.load_slots(inv_data)
+
         self.camera = Camera()
         self.hud    = HUD(self.player)
 
