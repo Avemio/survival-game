@@ -14,7 +14,7 @@ import pygame
 from game.settings import (
     PLAYER_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_COLOR,
     GRAVITY, JUMP_FORCE, JUMP_HOLD_FORCE, MAX_JUMP_TIME, MAX_FALL_SPEED,
-    ATTACK_COOLDOWN
+    ATTACK_COOLDOWN, PLAYER_MAX_HEALTH, HOTBAR_SLOTS
 )
 from game.systems.combat import AttackHitbox
 
@@ -30,10 +30,17 @@ class Player:
         self.jump_held  = False   # True while space is held after a jump
         self.jump_time  = 0.0     # seconds the jump extension has been active
 
+        # Health
+        self.max_health = PLAYER_MAX_HEALTH
+        self.health     = PLAYER_MAX_HEALTH
+
         # Combat state
         self.facing          = 1      # 1 = right, -1 = left
         self.attack_cooldown = 0.0    # counts down to 0; can attack when 0
         self.active_hitbox   = None   # set by attack(); cleared by engine
+
+        # Hotbar — tracks selected slot; items added in M7
+        self.hotbar_slot = 0          # index of the currently selected slot (0 to HOTBAR_SLOTS-1)
 
     # ------------------------------------------------------------------
     # Input

@@ -13,6 +13,7 @@ from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
 from game.core.camera     import Camera
 from game.entities.player import Player
 from game.world.world     import World
+from game.ui.hud          import HUD
 
 
 class Engine:
@@ -32,6 +33,7 @@ class Engine:
 
         self.player  = Player(*self.world.spawn)
         self.camera  = Camera()
+        self.hud     = HUD(self.player)
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -85,6 +87,9 @@ class Engine:
         if hitbox:
             pygame.draw.rect(self.screen, ATTACK_COLOR,
                              self.camera.apply(hitbox.rect), 2)
+
+        # HUD — drawn last, in screen space (no camera offset)
+        self.hud.draw(self.screen)
 
         pygame.display.flip()
 

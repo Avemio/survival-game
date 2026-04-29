@@ -27,6 +27,9 @@ JUMP_HOLD_FORCE = 900   # extra upward force per second while holding — compen
 MAX_JUMP_TIME   = 0.29  # max seconds jump can extend — tap+hold total restores original max height
 MAX_FALL_SPEED  = 1400  # terminal velocity — prevents infinite acceleration
 
+# Player stats
+PLAYER_MAX_HEALTH = 100
+
 # Combat
 ATTACK_DAMAGE   = 25    # damage per swing
 ATTACK_WIDTH    = 55    # horizontal reach of the hitbox
@@ -40,6 +43,16 @@ ENEMY_HEIGHT       = 60
 ENEMY_HEALTH       = 100
 HIT_FLASH_DURATION = 0.12   # seconds enemy flashes red after taking damage
 
+# HUD layout
+HUD_HEALTH_X      = 20     # distance from left edge
+HUD_HEALTH_Y      = 20     # distance from top edge
+HUD_HEALTH_W      = 200    # full bar width
+HUD_HEALTH_H      = 18     # bar height
+HOTBAR_SLOTS      = 8      # number of hotbar slots
+HOTBAR_SLOT_SIZE  = 48     # width and height of each slot
+HOTBAR_SLOT_GAP   = 4      # gap between slots
+HOTBAR_Y_OFFSET   = 10     # distance from bottom edge
+
 # Colors
 BG_COLOR       = (30,  30,  40)   # dark background
 PLAYER_COLOR   = (100, 180, 255)  # blue — player rectangle
@@ -51,3 +64,11 @@ MARKER_COLOR   = (80,  80,  80)   # gray — world marker rectangles (debug)
 WHITE          = (255, 255, 255)
 RED            = (220, 50,  50)
 GREEN          = (50,  200, 50)
+
+# HUD colors
+HUD_HEALTH_BG      = (80,  20,  20)   # dark red — empty bar background
+HUD_HEALTH_FG      = (220, 50,  50)   # bright red — health fill
+HUD_HEALTH_BORDER  = (200, 200, 200)  # light grey — bar outline
+HOTBAR_BG          = (40,  40,  50)   # dark — slot background
+HOTBAR_BORDER      = (100, 100, 120)  # grey — slot border
+HOTBAR_SELECTED    = (220, 200, 80)   # yellow — selected slot highlight
