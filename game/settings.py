@@ -65,6 +65,10 @@ WHITE          = (255, 255, 255)
 RED            = (220, 50,  50)
 GREEN          = (50,  200, 50)
 
+# Save point colors
+SAVE_POINT_COLOR        = (80,  200, 180)   # teal — idle
+SAVE_POINT_ACTIVE_COLOR = (200, 255, 240)   # bright teal — flash on save
+
 # HUD colors
 HUD_HEALTH_BG      = (80,  20,  20)   # dark red — empty bar background
 HUD_HEALTH_FG      = (220, 50,  50)   # bright red — health fill

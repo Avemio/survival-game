@@ -50,3 +50,11 @@ class World:
     @property
     def spawn(self):
         return self.zone.spawn
+
+    @property
+    def zone_id(self):
+        return self.zone.id
+
+    @property
+    def save_points(self):
+        return self.zone.save_points

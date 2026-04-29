@@ -42,7 +42,7 @@
 ## ui/
 | File | Purpose |
 |------|---------|
-| `ui/hud.py` | HUD overlay — health bar, resource meters, hotbar |
+| `ui/hud.py` | HUD overlay — health bar (top-left) and hotbar slots (bottom-center), screen space only |
 | `ui/dialogue.py` | Story text boxes, NPC conversation rendering |
 | `ui/menus.py` | Title screen, pause menu, inventory screen |
 

@@ -1,5 +1,5 @@
 {
-  "id": "zone_01_start",
+  "id": "zone_01",
   "spawn": [200, 580],
   "platforms": [
     {"x": 0,    "y": 660, "w": 10000, "h": 60, "label": "ground"},
@@ -13,5 +13,8 @@
     {"type": "basic", "x": 500,  "y": 600},
     {"type": "basic", "x": 800,  "y": 600},
     {"type": "basic", "x": 1100, "y": 600}
+  ],
+  "save_points": [
+    {"x": 50, "y": 596, "w": 60, "h": 64}
   ]
 }

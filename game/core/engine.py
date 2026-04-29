@@ -10,10 +10,11 @@ import pygame
 
 from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
                                    BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR)
-from game.core.camera     import Camera
-from game.entities.player import Player
-from game.world.world     import World
-from game.ui.hud          import HUD
+from game.core.camera       import Camera
+from game.entities.player   import Player
+from game.world.world       import World
+from game.ui.hud            import HUD
+from game.systems.saving    import save_game, load_game
 
 
 class Engine:
@@ -24,16 +25,33 @@ class Engine:
         self.clock   = pygame.time.Clock()
         self.running = True
 
-        # Load the first zone through World
-        self.world   = World("zone_01")
+        # Load save data first so we know which zone to load
+        save_data = load_game()
+        zone_id   = save_data["zone"] if save_data else "zone_01"
 
-        # Direct references to the zone's lists — kept in sync via in-place mutation
-        self.platforms = self.world.platforms
-        self.enemies   = self.world.enemies
+        self.world       = World(zone_id)
+        self.platforms   = self.world.platforms
+        self.enemies     = self.world.enemies
+        self.save_points = self.world.save_points
 
-        self.player  = Player(*self.world.spawn)
-        self.camera  = Camera()
-        self.hud     = HUD(self.player)
+        self.player = Player(*self.world.spawn)
+
+        # Apply saved player state if a save exists
+        if save_data:
+            px = save_data["player"]["x"]
+            py = save_data["player"]["y"]
+            self.player.rect.topleft = (px, py)
+            self.player.pos.x        = px
+            self.player.pos.y        = py
+            self.player.health       = save_data["player"]["health"]
+
+        self.camera = Camera()
+        self.hud    = HUD(self.player)
+
+        # Pre-warm save point overlap state — prevents a flash trigger if the
+        # player spawns directly on top of a save point (e.g. after loading a save)
+        for sp in self.save_points:
+            sp.was_overlapping = sp.rect.colliderect(self.player.rect)
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -66,6 +84,16 @@ class Engine:
         # Remove dead enemies — in-place so self.world.enemies stays in sync
         self.enemies[:] = [e for e in self.enemies if e.alive]
 
+        # Save point collision — trigger only on the frame the player enters
+        for sp in self.save_points:
+            sp.update(dt)
+            overlapping = sp.rect.colliderect(self.player.rect)
+            if overlapping and not sp.was_overlapping:
+                self.player.health = self.player.max_health
+                save_game(self.player, self.world.zone_id)
+                sp.flash_timer = sp.FLASH_DURATION
+            sp.was_overlapping = overlapping
+
         self.camera.update(self.player.rect)
 
     def draw(self):
@@ -74,6 +102,10 @@ class Engine:
         # Draw platforms
         for p in self.platforms:
             pygame.draw.rect(self.screen, PLATFORM_COLOR, self.camera.apply(p))
+
+        # Draw save points
+        for sp in self.save_points:
+            sp.draw(self.screen, self.camera)
 
         # Draw enemies
         for enemy in self.enemies:
