@@ -2,6 +2,10 @@
   "basic": {
     "health": 100,
     "width":  40,
-    "height": 60
+    "height": 60,
+    "drops": [
+      {"item_id": "wood", "quantity": 2, "chance": 1.0},
+      {"item_id": "herb", "quantity": 1, "chance": 0.4}
+    ]
   }
 }

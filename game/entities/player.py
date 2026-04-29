@@ -44,10 +44,6 @@ class Player:
         self.inventory    = Inventory(size=HOTBAR_SLOTS)
         self._hotbar_slot = 0   # backing value; use the property to set safely
 
-        # Seed with test items so hotbar is visible before M7B adds real drops
-        self.inventory.add("wood",  5)
-        self.inventory.add("stone", 3)
-
     @property
     def hotbar_slot(self):
         return self._hotbar_slot

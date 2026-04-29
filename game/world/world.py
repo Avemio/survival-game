@@ -17,9 +17,10 @@ _DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
 class World:
     def __init__(self, zone_id):
-        # Load enemy type definitions once — reused every time a zone is loaded
         with open(_DATA_DIR / "enemies.json") as f:
             self._enemy_types = json.load(f)
+        with open(_DATA_DIR / "items.json") as f:
+            self._item_defs = json.load(f)
 
         self.zone = self._load_zone(zone_id)
 
@@ -29,7 +30,7 @@ class World:
 
     def _load_zone(self, zone_id):
         path = _DATA_DIR / "zones" / f"{zone_id}.json"
-        return Zone(path, self._enemy_types)
+        return Zone(path, self._enemy_types, self._item_defs)
 
     # Zone transitions go here in M9:
     # def transition_to(self, zone_id):
@@ -58,3 +59,7 @@ class World:
     @property
     def save_points(self):
         return self.zone.save_points
+
+    @property
+    def item_drops(self):
+        return self.zone.item_drops

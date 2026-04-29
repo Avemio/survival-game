@@ -16,5 +16,9 @@
   ],
   "save_points": [
     {"x": 50, "y": 596, "w": 60, "h": 64}
+  ],
+  "item_drops": [
+    {"item_id": "stone", "quantity": 5, "x": 250, "y": 640},
+    {"item_id": "wood",  "quantity": 3, "x": 700, "y": 640}
   ]
 }

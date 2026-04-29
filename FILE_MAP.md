@@ -29,7 +29,7 @@
 | File | Purpose |
 |------|---------|
 | `systems/combat.py` | AttackHitbox — temporary rect spawned on swing, already_hit set prevents multi-hit, expires after ATTACK_DURATION |
-| `systems/inventory.py` | Item storage, equipping, hotbar logic |
+| `systems/inventory.py` | Inventory class — fixed slot list, add/remove/serialize, loads item defs from items.json |
 | `systems/crafting.py` | Crafting recipes, resource consumption validation |
 | `systems/saving.py` | Save/load game state, heal-to-full at save points |
 
@@ -51,7 +51,7 @@
 |------|---------|
 | `data/enemies.json` | Enemy type definitions — health, size, (later: speed, damage, drops) |
 | `data/zones/zone_01.json` | First zone — platforms, enemy spawns, player spawn point |
-| `data/items.json` | All item definitions — properties, crafting recipes (future) |
+| `data/items.json` | Item type definitions — name, color, stackability, use effects |
 
 ## assets/
 | Folder | Purpose |

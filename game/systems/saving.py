@@ -23,16 +23,17 @@ from pathlib import Path
 _SAVE_PATH = Path(__file__).parent.parent.parent / "save.json"
 
 
-def save_game(player, zone_id):
+def save_game(player, zone_id, collected_zone_drops):
     """Write current game state to disk. Health is saved as max (full heal on save)."""
     data = {
         "zone": zone_id,
         "player": {
             "x":         player.rect.x,
             "y":         player.rect.y,
-            "health":    player.max_health,   # always save at full health
+            "health":    player.max_health,
             "inventory": player.inventory.serialize()
-        }
+        },
+        "collected_zone_drops": sorted(collected_zone_drops)
     }
     with open(_SAVE_PATH, "w") as f:
         json.dump(data, f, indent=2)

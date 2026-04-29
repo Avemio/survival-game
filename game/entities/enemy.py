@@ -27,6 +27,7 @@ class Enemy:
         self.health      = stats.get("health", ENEMY_HEALTH)
         self.alive       = True
         self.hit_flash   = 0.0     # countdown in seconds; >0 means flashing white
+        self.loot        = stats.get("drops", [])   # list of drop defs from enemies.json
 
     # ------------------------------------------------------------------
     # Damage

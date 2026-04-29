@@ -6,15 +6,17 @@ Does NOT own: game logic, combat, zone data.
 """
 
 import sys
+import random
 import pygame
 
 from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
                                    BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR)
-from game.core.camera       import Camera
-from game.entities.player   import Player
-from game.world.world       import World
-from game.ui.hud            import HUD
-from game.systems.saving    import save_game, load_game
+from game.core.camera        import Camera
+from game.entities.player    import Player
+from game.entities.item_drop import ItemDrop
+from game.world.world        import World
+from game.ui.hud             import HUD
+from game.systems.saving     import save_game, load_game
 
 
 class Engine:
@@ -33,6 +35,10 @@ class Engine:
         self.platforms   = self.world.platforms
         self.enemies     = self.world.enemies
         self.save_points = self.world.save_points
+        self.item_drops  = self.world.item_drops
+
+        # Indices of zone drops the player has already collected (persists across loads)
+        self.collected_zone_drops = set()
 
         self.player = Player(*self.world.spawn)
 
@@ -48,6 +54,15 @@ class Engine:
             inv_data = save_data["player"].get("inventory")
             if inv_data:
                 self.player.inventory.load_slots(inv_data)
+
+            collected = save_data.get("collected_zone_drops", [])
+            self.collected_zone_drops = set(collected)
+
+        # Remove zone drops the player has already collected
+        self.item_drops[:] = [
+            d for d in self.item_drops
+            if d.zone_drop_index not in self.collected_zone_drops
+        ]
 
         self.camera = Camera()
         self.hud    = HUD(self.player)
@@ -69,13 +84,45 @@ class Engine:
         self.player.update(dt, self.platforms)
         self._update_enemies(dt)
         self._update_combat(dt)
+        self._update_item_drops()
         self._update_save_points(dt)
         self.camera.update(self.player.rect)
 
     def _update_enemies(self, dt):
         for enemy in self.enemies:
             enemy.update(dt)
+        # Spawn drops for enemies that died this frame, then cull them
+        for enemy in self.enemies:
+            if not enemy.alive:
+                self._spawn_drops(enemy)
         self.enemies[:] = [e for e in self.enemies if e.alive]
+
+    def _spawn_drops(self, enemy):
+        """Roll loot table and create ItemDrop objects at the enemy's position."""
+        item_defs = self.player.inventory.item_defs
+        for drop in enemy.loot:
+            if random.random() < drop.get("chance", 1.0):
+                item_id  = drop["item_id"]
+                quantity = drop.get("quantity", 1)
+                color    = tuple(item_defs.get(item_id, {}).get("color", [200, 200, 200]))
+                # Center the drop on the enemy, sitting at its feet
+                x = enemy.rect.centerx - ItemDrop.SIZE // 2
+                y = enemy.rect.bottom  - ItemDrop.SIZE
+                self.item_drops.append(ItemDrop(x, y, item_id, quantity, color))
+
+    def _update_item_drops(self):
+        """Pick up any drops the player is standing on."""
+        for drop in self.item_drops:
+            if drop.rect.colliderect(self.player.rect):
+                leftover = self.player.inventory.add(drop.item_id, drop.quantity)
+                if leftover == 0:
+                    drop.alive = False
+                    # Track zone drops so they don't respawn on next load
+                    if drop.zone_drop_index is not None:
+                        self.collected_zone_drops.add(drop.zone_drop_index)
+                else:
+                    drop.quantity = leftover   # partial pickup if inventory was nearly full
+        self.item_drops[:] = [d for d in self.item_drops if d.alive]
 
     def _update_combat(self, dt):
         hitbox = self.player.active_hitbox
@@ -96,7 +143,7 @@ class Engine:
             overlapping = sp.rect.colliderect(self.player.rect)
             if overlapping and not sp.was_overlapping:
                 self.player.health = self.player.max_health
-                save_game(self.player, self.world.zone_id)
+                save_game(self.player, self.world.zone_id, self.collected_zone_drops)
                 sp.flash_timer = sp.FLASH_DURATION
             sp.was_overlapping = overlapping
 
@@ -110,6 +157,10 @@ class Engine:
         # Draw save points
         for sp in self.save_points:
             sp.draw(self.screen, self.camera)
+
+        # Draw item drops
+        for drop in self.item_drops:
+            drop.draw(self.screen, self.camera)
 
         # Draw enemies
         for enemy in self.enemies:
