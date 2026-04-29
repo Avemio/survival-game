@@ -82,6 +82,14 @@ class Inventory:
 
         return remaining   # leftover if inventory was full
 
+    def count(self, item_id):
+        """Total quantity of item_id across all slots."""
+        total = 0
+        for slot in self.slots:
+            if slot and slot.item_id == item_id:
+                total += slot.quantity
+        return total
+
     def remove(self, slot_index, quantity=1):
         """
         Remove quantity from the given slot.

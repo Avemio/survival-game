@@ -24,5 +24,11 @@
     "max_stack":  10,
     "use":        "heal",
     "heal_amount": 30
+  },
+  "plank": {
+    "name":      "Plank",
+    "color":     [180, 120, 60],
+    "stackable": true,
+    "max_stack": 99
   }
 }

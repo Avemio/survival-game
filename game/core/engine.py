@@ -16,7 +16,9 @@ from game.entities.player    import Player
 from game.entities.item_drop import ItemDrop
 from game.world.world        import World
 from game.ui.hud             import HUD
+from game.ui.menus           import CraftingMenu
 from game.systems.saving     import save_game, load_game
+from game.systems.crafting   import CraftingSystem
 
 
 class Engine:
@@ -64,8 +66,10 @@ class Engine:
             if d.zone_drop_index not in self.collected_zone_drops
         ]
 
-        self.camera = Camera()
-        self.hud    = HUD(self.player)
+        self.camera   = Camera()
+        self.hud      = HUD(self.player)
+        self.crafting = CraftingSystem()
+        self.crafting_menu = CraftingMenu(self.player, self.crafting)
 
         # Pre-warm save point overlap state — prevents a flash trigger if the
         # player spawns directly on top of a save point (e.g. after loading a save)
@@ -76,11 +80,28 @@ class Engine:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.running = False
+                    if self.crafting_menu.open:
+                        self.crafting_menu.close()
+                    else:
+                        self.running = False
+
+                elif event.key == pygame.K_c:
+                    self.crafting_menu.toggle()
+
+                # Forward navigation keys to the menu while it's open
+                if self.crafting_menu.open:
+                    self.crafting_menu.handle_event(event)
 
     def update(self, dt):
+        self.crafting_menu.update(dt)
+
+        # Pause all world simulation while the crafting menu is open
+        if self.crafting_menu.open:
+            return
+
         self.player.update(dt, self.platforms)
         self._update_enemies(dt)
         self._update_combat(dt)
@@ -177,6 +198,9 @@ class Engine:
 
         # HUD — drawn last, in screen space (no camera offset)
         self.hud.draw(self.screen)
+
+        # Crafting menu — drawn over HUD when open
+        self.crafting_menu.draw(self.screen)
 
         pygame.display.flip()
 

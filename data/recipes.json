@@ -1,0 +1,14 @@
+{
+  "plank": {
+    "name":        "Plank",
+    "result":      "plank",
+    "count":       2,
+    "ingredients": { "wood": 3 }
+  },
+  "health_potion": {
+    "name":        "Health Potion",
+    "result":      "health_potion",
+    "count":       1,
+    "ingredients": { "herb": 2 }
+  }
+}

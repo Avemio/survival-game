@@ -69,6 +69,19 @@ GREEN          = (50,  200, 50)
 SAVE_POINT_COLOR        = (80,  200, 180)   # teal — idle
 SAVE_POINT_ACTIVE_COLOR = (200, 255, 240)   # bright teal — flash on save
 
+# Crafting menu
+CRAFT_PANEL_W          = 440
+CRAFT_PANEL_H          = 420
+CRAFT_PANEL_BG         = (22,  22,  32)
+CRAFT_PANEL_BORDER     = (90,  90,  120)
+CRAFT_TITLE_COLOR      = (220, 200, 80)    # yellow — matches hotbar selected
+CRAFT_RECIPE_COLOR     = (210, 210, 220)   # near-white — craftable name
+CRAFT_RECIPE_DIM       = (90,  90,  100)   # grey — name when not craftable
+CRAFT_SELECTED_BG      = (45,  45,  65)    # highlighted row background
+CRAFT_INGREDIENT_OK    = (90,  210, 100)   # green — have enough
+CRAFT_INGREDIENT_MISS  = (210, 90,  90)    # red — not enough
+CRAFT_FOOTER_COLOR     = (120, 120, 140)   # muted — controls hint
+
 # HUD colors
 HUD_HEALTH_BG      = (80,  20,  20)   # dark red — empty bar background
 HUD_HEALTH_FG      = (220, 50,  50)   # bright red — health fill
