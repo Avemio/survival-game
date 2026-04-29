@@ -40,9 +40,10 @@ class Engine:
         self.save_points = self.world.save_points
         self.item_drops  = self.world.item_drops
         self.npcs        = self.world.npcs
+        self.exits       = self.world.exits
 
-        # Indices of zone drops the player has already collected (persists across loads)
-        self.collected_zone_drops = set()
+        # Per-zone drop log: {zone_id: set of int indices already collected}
+        self.collected_zone_drops = {}
 
         self.player = Player(*self.world.spawn)
 
@@ -59,13 +60,18 @@ class Engine:
             if inv_data:
                 self.player.inventory.load_slots(inv_data)
 
-            collected = save_data.get("collected_zone_drops", [])
-            self.collected_zone_drops = set(collected)
+            raw = save_data.get("collected_zone_drops", {})
+            if isinstance(raw, list):
+                # Migrate old flat-list format (assumed to be zone_01 drops)
+                self.collected_zone_drops = {zone_id: set(raw)}
+            else:
+                self.collected_zone_drops = {k: set(v) for k, v in raw.items()}
 
-        # Remove zone drops the player has already collected
+        # Remove zone drops the player has already collected in this zone
+        already = self.collected_zone_drops.get(zone_id, set())
         self.item_drops[:] = [
             d for d in self.item_drops
-            if d.zone_drop_index not in self.collected_zone_drops
+            if d.zone_drop_index not in already
         ]
 
         self.camera        = Camera()
@@ -121,6 +127,7 @@ class Engine:
         self._update_combat(dt)
         self._update_item_drops()
         self._update_save_points(dt)
+        self._update_zone_exits()
         self.camera.update(self.player.rect)
 
     def _update_enemies(self, dt):
@@ -154,7 +161,9 @@ class Engine:
                     drop.alive = False
                     # Track zone drops so they don't respawn on next load
                     if drop.zone_drop_index is not None:
-                        self.collected_zone_drops.add(drop.zone_drop_index)
+                        self.collected_zone_drops.setdefault(
+                            self.world.zone_id, set()
+                        ).add(drop.zone_drop_index)
                 else:
                     drop.quantity = leftover   # partial pickup if inventory was nearly full
         self.item_drops[:] = [d for d in self.item_drops if d.alive]
@@ -182,12 +191,60 @@ class Engine:
                 sp.flash_timer = sp.FLASH_DURATION
             sp.was_overlapping = overlapping
 
+    def _update_zone_exits(self):
+        for exit_ in self.exits:
+            if exit_.rect.colliderect(self.player.rect):
+                self._transition_zone(exit_.target_zone)
+                return   # stop — lists just changed
+
+    def _transition_zone(self, target_zone_id):
+        """Save, swap zones, re-point all engine list references, teleport player."""
+        # Auto-save before leaving
+        save_game(self.player, self.world.zone_id, self.collected_zone_drops)
+
+        # Load the new zone
+        self.world.transition_to(target_zone_id)
+
+        # Re-point all engine references — world's lists are brand new after transition
+        self.platforms   = self.world.platforms
+        self.enemies     = self.world.enemies
+        self.save_points = self.world.save_points
+        self.npcs        = self.world.npcs
+        self.exits       = self.world.exits
+        self.item_drops  = self.world.item_drops
+
+        # Filter out zone drops already collected in the target zone
+        already = self.collected_zone_drops.get(target_zone_id, set())
+        self.item_drops[:] = [
+            d for d in self.item_drops
+            if d.zone_drop_index not in already
+        ]
+
+        # Teleport player to the new zone's spawn point
+        sx, sy = self.world.spawn
+        self.player.rect.topleft = (sx, sy)
+        self.player.pos.x        = sx
+        self.player.pos.y        = sy
+        self.player.velocity.x   = 0
+        self.player.velocity.y   = 0
+
+        # Snap camera immediately — no lerp here, so this is instant
+        self.camera.update(self.player.rect)
+
+        # Pre-warm save point overlap so touching the spawn save point doesn't flash
+        for sp in self.save_points:
+            sp.was_overlapping = sp.rect.colliderect(self.player.rect)
+
     def draw(self):
         self.screen.fill(BG_COLOR)
 
         # Draw platforms
         for p in self.platforms:
             pygame.draw.rect(self.screen, PLATFORM_COLOR, self.camera.apply(p))
+
+        # Draw zone exits
+        for exit_ in self.exits:
+            exit_.draw(self.screen, self.camera)
 
         # Draw save points
         for sp in self.save_points:

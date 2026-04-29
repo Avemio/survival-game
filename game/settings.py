@@ -69,6 +69,10 @@ GREEN          = (50,  200, 50)
 SAVE_POINT_COLOR        = (80,  200, 180)   # teal — idle
 SAVE_POINT_ACTIVE_COLOR = (200, 255, 240)   # bright teal — flash on save
 
+# Zone exit portal
+EXIT_COLOR        = (50,  180, 100)   # green — zone exit rect
+EXIT_BORDER_COLOR = (120, 240, 160)   # bright green — portal border
+
 # Dialogue box
 DIALOGUE_PANEL_BG     = (18,  18,  28)
 DIALOGUE_PANEL_BORDER = (90,  90,  120)

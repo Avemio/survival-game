@@ -37,9 +37,9 @@ class World:
         return Zone(path, self._enemy_types, self._item_defs,
                     self._npc_types, self._dialogue_data)
 
-    # Zone transitions go here in M9:
-    # def transition_to(self, zone_id):
-    #     self.zone = self._load_zone(zone_id)
+    def transition_to(self, zone_id):
+        """Swap out the active zone. Engine must re-point its list references after calling this."""
+        self.zone = self._load_zone(zone_id)
 
     # ------------------------------------------------------------------
     # Convenience properties — engine uses these, not zone internals
@@ -72,3 +72,7 @@ class World:
     @property
     def npcs(self):
         return self.zone.npcs
+
+    @property
+    def exits(self):
+        return self.zone.exits

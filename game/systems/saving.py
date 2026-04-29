@@ -24,7 +24,10 @@ _SAVE_PATH = Path(__file__).parent.parent.parent / "save.json"
 
 
 def save_game(player, zone_id, collected_zone_drops):
-    """Write current game state to disk. Health is saved as max (full heal on save)."""
+    """
+    Write current game state to disk. Health is saved as max (full heal on save).
+    collected_zone_drops — dict mapping zone_id -> set of collected drop indices.
+    """
     data = {
         "zone": zone_id,
         "player": {
@@ -33,7 +36,8 @@ def save_game(player, zone_id, collected_zone_drops):
             "health":    player.max_health,
             "inventory": player.inventory.serialize()
         },
-        "collected_zone_drops": sorted(collected_zone_drops)
+        # Serialize: {zone_id: sorted list of ints}
+        "collected_zone_drops": {k: sorted(v) for k, v in collected_zone_drops.items()}
     }
     with open(_SAVE_PATH, "w") as f:
         json.dump(data, f, indent=2)

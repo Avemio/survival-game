@@ -12,7 +12,7 @@ from pathlib import Path
 from game.entities.enemy     import Enemy
 from game.entities.item_drop import ItemDrop
 from game.entities.npc       import NPC
-from game.settings import SAVE_POINT_COLOR, SAVE_POINT_ACTIVE_COLOR
+from game.settings import SAVE_POINT_COLOR, SAVE_POINT_ACTIVE_COLOR, EXIT_COLOR, EXIT_BORDER_COLOR
 
 
 class SavePoint:
@@ -32,6 +32,18 @@ class SavePoint:
         pygame.draw.rect(screen, color, camera.apply(self.rect))
 
 
+class ZoneExit:
+    """A trigger rect that transports the player to another zone when touched."""
+
+    def __init__(self, x, y, w, h, target_zone):
+        self.rect        = pygame.Rect(x, y, w, h)
+        self.target_zone = target_zone
+
+    def draw(self, screen, camera):
+        pygame.draw.rect(screen, EXIT_COLOR,        camera.apply(self.rect))
+        pygame.draw.rect(screen, EXIT_BORDER_COLOR, camera.apply(self.rect), 2)
+
+
 class Zone:
     def __init__(self, path, enemy_types, item_defs, npc_types, dialogue_data):
         """
@@ -47,6 +59,7 @@ class Zone:
         self.save_points = []
         self.item_drops  = []
         self.npcs        = []
+        self.exits       = []
         self.spawn       = (200, 580)
 
         self._load(Path(path), enemy_types, item_defs, npc_types, dialogue_data)
@@ -82,3 +95,8 @@ class Zone:
             npc_def = npc_types.get(n["type"], {})
             lines   = dialogue_data.get(n["dialogue_id"], [])
             self.npcs.append(NPC(n["x"], n["y"], npc_def, lines))
+
+        for ex in data.get("exits", []):
+            self.exits.append(
+                ZoneExit(ex["x"], ex["y"], ex["w"], ex["h"], ex["target_zone"])
+            )

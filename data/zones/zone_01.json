@@ -23,5 +23,8 @@
   ],
   "npcs": [
     {"type": "villager", "dialogue_id": "villager_01", "x": 400, "y": 608}
+  ],
+  "exits": [
+    {"x": 1800, "y": 0, "w": 50, "h": 720, "target_zone": "zone_02"}
   ]
 }

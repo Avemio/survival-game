@@ -4,5 +4,11 @@
     "color":  [220, 190, 130],
     "width":  28,
     "height": 52
+  },
+  "guard": {
+    "name":   "Guard",
+    "color":  [150, 160, 200],
+    "width":  28,
+    "height": 52
   }
 }

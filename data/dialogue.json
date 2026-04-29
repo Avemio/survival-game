@@ -3,5 +3,10 @@
     "You're new here. Don't wander east - there's something moving in the caves that wasn't there a month ago.",
     "The old ruins past the ridge used to be empty. Now there are lights at night. Whatever's in there, it's not friendly.",
     "Stock up on whatever you can find. If things get worse, I'm heading south."
+  ],
+  "guard_01": [
+    "Turn back if you value your life. The creatures beyond these ruins are unlike anything I've seen.",
+    "We lost three scouts this week. Whatever's nesting in the deep caves, it's organized.",
+    "I can't leave my post. But you... you might be just crazy enough to make it through."
   ]
 }
