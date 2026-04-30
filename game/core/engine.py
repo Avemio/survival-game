@@ -284,7 +284,7 @@ class Engine:
 
     def run(self):
         while self.running:
-            dt = self.clock.tick(FPS) / 1000.0  # seconds since last frame
+            dt = min(self.clock.tick(FPS) / 1000.0, 0.05)  # seconds; capped to prevent physics tunneling on alt-tab
 
             self.handle_events()
             self.update(dt)

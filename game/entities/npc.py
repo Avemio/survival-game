@@ -24,8 +24,10 @@ class NPC:
         self.color          = tuple(npc_def.get("color", [200, 190, 140]))
         self.dialogue_lines = dialogue_lines   # list[str]
 
-        # Font for the "[E] Talk" overhead prompt — created once
-        self._prompt_font = pygame.font.SysFont(None, 18)
+        # Font and pre-built surfaces for the "[E] Talk" overhead prompt — created once
+        self._prompt_font   = pygame.font.SysFont(None, 18)
+        self._prompt_shadow = self._prompt_font.render("[E] Talk", True, (0, 0, 0))
+        self._prompt_surf   = self._prompt_font.render("[E] Talk", True, (255, 255, 255))
 
     @property
     def interact_rect(self):
@@ -47,15 +49,8 @@ class NPC:
 
         # Overhead "[E] Talk" prompt when the player is within interact range
         if self.interact_rect.colliderect(player_rect) and self.dialogue_lines:
-            r   = camera.apply(self.rect)
-            txt = "[E] Talk"
-
-            # Shadow first (1 px offset, black) for contrast against any background
-            shadow_surf = self._prompt_font.render(txt, True, (0, 0, 0))
-            main_surf   = self._prompt_font.render(txt, True, (255, 255, 255))
-
-            px = r.centerx - main_surf.get_width() // 2
-            py = r.top - main_surf.get_height() - 5
-
-            screen.blit(shadow_surf, (px + 1, py + 1))
-            screen.blit(main_surf,   (px,     py))
+            r  = camera.apply(self.rect)
+            px = r.centerx - self._prompt_surf.get_width() // 2
+            py = r.top - self._prompt_surf.get_height() - 5
+            screen.blit(self._prompt_shadow, (px + 1, py + 1))
+            screen.blit(self._prompt_surf,   (px,     py))

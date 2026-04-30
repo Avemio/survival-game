@@ -77,7 +77,7 @@ class Zone:
                 pygame.Rect(p["x"], p["y"], p["w"], p["h"])
             )
 
-        for e in data["enemies"]:
+        for e in data.get("enemies", []):
             stats = enemy_types.get(e["type"], {})
             self.enemies.append(Enemy(e["x"], e["y"], stats))
 
