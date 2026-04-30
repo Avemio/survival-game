@@ -32,7 +32,7 @@ class Engine:
 
         # Load save data first so we know which zone to load
         save_data = load_game()
-        zone_id   = save_data["zone"] if save_data else "zone_01"
+        zone_id   = save_data.get("zone", "zone_01") if save_data else "zone_01"
 
         self.world       = World(zone_id)
         self.platforms   = self.world.platforms
@@ -49,14 +49,15 @@ class Engine:
 
         # Apply saved player state if a save exists
         if save_data:
-            px = save_data["player"]["x"]
-            py = save_data["player"]["y"]
+            player_data = save_data.get("player", {})
+            px = player_data.get("x", self.world.spawn[0])
+            py = player_data.get("y", self.world.spawn[1])
             self.player.rect.topleft = (px, py)
             self.player.pos.x        = px
             self.player.pos.y        = py
-            self.player.health       = save_data["player"]["health"]
+            self.player.health       = player_data.get("health", self.player.max_health)
 
-            inv_data = save_data["player"].get("inventory")
+            inv_data = player_data.get("inventory")
             if inv_data:
                 self.player.inventory.load_slots(inv_data)
 
@@ -104,10 +105,10 @@ class Engine:
                 elif event.key == pygame.K_e:
                     if self.dialogue_box.open:
                         self.dialogue_box.advance()
-                    else:
+                    elif not self.crafting_menu.open:
                         # Start dialogue if the player is within interact range of an NPC
                         for npc in self.npcs:
-                            if npc._interact_rect.colliderect(self.player.rect):
+                            if npc.interact_rect.colliderect(self.player.rect):
                                 self.dialogue_box.start(npc.name, npc.dialogue_lines)
                                 break
 
@@ -131,13 +132,14 @@ class Engine:
         self.camera.update(self.player.rect)
 
     def _update_enemies(self, dt):
+        living = []
         for enemy in self.enemies:
             enemy.update(dt)
-        # Spawn drops for enemies that died this frame, then cull them
-        for enemy in self.enemies:
-            if not enemy.alive:
+            if enemy.alive:
+                living.append(enemy)
+            else:
                 self._spawn_drops(enemy)
-        self.enemies[:] = [e for e in self.enemies if e.alive]
+        self.enemies[:] = living
 
     def _spawn_drops(self, enemy):
         """Roll loot table and create ItemDrop objects at the enemy's position."""
@@ -227,9 +229,7 @@ class Engine:
         self.player.pos.y        = sy
         self.player.velocity.x   = 0
         self.player.velocity.y   = 0
-
-        # Snap camera immediately — no lerp here, so this is instant
-        self.camera.update(self.player.rect)
+        self.player.active_hitbox = None   # cancel any in-flight swing
 
         # Pre-warm save point overlap so touching the spawn save point doesn't flash
         for sp in self.save_points:
@@ -240,7 +240,7 @@ class Engine:
 
         # Draw platforms
         for p in self.platforms:
-            pygame.draw.rect(self.screen, PLATFORM_COLOR, self.camera.apply(p))
+            pygame.draw.rect(self.screen, PLATFORM_COLOR, self.camera.apply_tuple(p))
 
         # Draw zone exits
         for exit_ in self.exits:
@@ -269,7 +269,7 @@ class Engine:
         hitbox = self.player.active_hitbox
         if hitbox:
             pygame.draw.rect(self.screen, ATTACK_COLOR,
-                             self.camera.apply(hitbox.rect), 2)
+                             self.camera.apply_tuple(hitbox.rect), 2)
 
         # HUD — drawn last, in screen space (no camera offset)
         self.hud.draw(self.screen)

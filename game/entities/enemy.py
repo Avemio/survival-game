@@ -53,4 +53,4 @@ class Enemy:
 
     def draw(self, screen, camera):
         color = ENEMY_HIT_COLOR if self.hit_flash > 0 else ENEMY_COLOR
-        pygame.draw.rect(screen, color, camera.apply(self.rect))
+        pygame.draw.rect(screen, color, camera.apply_tuple(self.rect))

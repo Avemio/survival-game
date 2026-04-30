@@ -98,7 +98,7 @@ class Inventory:
         slot = self.slots[slot_index]
         if not slot:
             return
-        slot.quantity -= quantity
+        slot.quantity -= min(quantity, slot.quantity)   # never go below zero
         if slot.quantity <= 0:
             self.slots[slot_index] = None
 

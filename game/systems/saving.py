@@ -10,11 +10,16 @@ Save format:
     "player": {
       "x": 200, "y": 580, "health": 100,
       "inventory": [{"item_id": "wood", "quantity": 5}, null, ...]
+    },
+    "collected_zone_drops": {
+      "zone_01": [0, 1],
+      "zone_02": []
     }
   }
 """
 
 import json
+import os
 from pathlib import Path
 
 
@@ -39,8 +44,12 @@ def save_game(player, zone_id, collected_zone_drops):
         # Serialize: {zone_id: sorted list of ints}
         "collected_zone_drops": {k: sorted(v) for k, v in collected_zone_drops.items()}
     }
-    with open(_SAVE_PATH, "w") as f:
+    # Write to a temp file first, then atomically replace the real save.
+    # If the process dies mid-write, the old save stays intact.
+    tmp = _SAVE_PATH.with_suffix(".tmp")
+    with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
+    os.replace(tmp, _SAVE_PATH)
 
 
 def load_game():
@@ -50,5 +59,9 @@ def load_game():
     """
     if not _SAVE_PATH.exists():
         return None
-    with open(_SAVE_PATH) as f:
-        return json.load(f)
+    try:
+        with open(_SAVE_PATH) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, KeyError, ValueError):
+        # Corrupted save — treat as a fresh start rather than crashing
+        return None

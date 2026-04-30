@@ -29,7 +29,7 @@ class SavePoint:
 
     def draw(self, screen, camera):
         color = SAVE_POINT_ACTIVE_COLOR if self.flash_timer > 0 else SAVE_POINT_COLOR
-        pygame.draw.rect(screen, color, camera.apply(self.rect))
+        pygame.draw.rect(screen, color, camera.apply_tuple(self.rect))
 
 
 class ZoneExit:
@@ -40,8 +40,9 @@ class ZoneExit:
         self.target_zone = target_zone
 
     def draw(self, screen, camera):
-        pygame.draw.rect(screen, EXIT_COLOR,        camera.apply(self.rect))
-        pygame.draw.rect(screen, EXIT_BORDER_COLOR, camera.apply(self.rect), 2)
+        r = camera.apply_tuple(self.rect)
+        pygame.draw.rect(screen, EXIT_COLOR,        r)
+        pygame.draw.rect(screen, EXIT_BORDER_COLOR, r, 2)
 
 
 class Zone:
@@ -69,9 +70,9 @@ class Zone:
             data = json.load(f)
 
         self.id    = data.get("id", path.stem)
-        self.spawn = tuple(data["spawn"])
+        self.spawn = tuple(data.get("spawn", [200, 580]))
 
-        for p in data["platforms"]:
+        for p in data.get("platforms", []):
             self.platforms.append(
                 pygame.Rect(p["x"], p["y"], p["w"], p["h"])
             )

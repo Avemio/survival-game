@@ -26,9 +26,22 @@ class Camera:
     def apply(self, rect):
         """
         Takes a rect in world coordinates.
-        Returns a new rect in screen coordinates, ready to draw.
+        Returns a new pygame.Rect in screen coordinates.
+        Use when you need Rect attributes (centerx, top, etc.) after the call.
         """
         return pygame.Rect(
+            rect.x      - self.offset.x,
+            rect.y      - self.offset.y,
+            rect.width,
+            rect.height
+        )
+
+    def apply_tuple(self, rect):
+        """
+        Like apply(), but returns a plain 4-tuple instead of a Rect.
+        Use this for all direct pygame.draw calls — avoids a Rect allocation per frame.
+        """
+        return (
             rect.x      - self.offset.x,
             rect.y      - self.offset.y,
             rect.width,

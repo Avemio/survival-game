@@ -27,9 +27,11 @@ class NPC:
         # Font for the "[E] Talk" overhead prompt — created once
         self._prompt_font = pygame.font.SysFont(None, 18)
 
-        # Rect expanded horizontally for proximity checks so the player
-        # doesn't have to pixel-perfectly overlap to see the prompt / trigger
-        self._interact_rect = self.rect.inflate(80, 0)
+    @property
+    def interact_rect(self):
+        """Rect expanded 40 px on each side — used for prompt display and E-key trigger.
+        Computed fresh each access so it stays accurate if the NPC ever moves."""
+        return self.rect.inflate(80, 0)
 
     # ------------------------------------------------------------------
     # Draw
@@ -41,10 +43,10 @@ class NPC:
                       the NPC doesn't move so no other player state is needed.
         """
         # Body
-        pygame.draw.rect(screen, self.color, camera.apply(self.rect))
+        pygame.draw.rect(screen, self.color, camera.apply_tuple(self.rect))
 
         # Overhead "[E] Talk" prompt when the player is within interact range
-        if self._interact_rect.colliderect(player_rect) and self.dialogue_lines:
+        if self.interact_rect.colliderect(player_rect) and self.dialogue_lines:
             r   = camera.apply(self.rect)
             txt = "[E] Talk"
 

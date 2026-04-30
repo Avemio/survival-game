@@ -166,4 +166,4 @@ class Player:
     # ------------------------------------------------------------------
 
     def draw(self, screen, camera):
-        pygame.draw.rect(screen, PLAYER_COLOR, camera.apply(self.rect))
+        pygame.draw.rect(screen, PLAYER_COLOR, camera.apply_tuple(self.rect))

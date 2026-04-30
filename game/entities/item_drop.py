@@ -32,5 +32,6 @@ class ItemDrop:
     # ------------------------------------------------------------------
 
     def draw(self, screen, camera):
-        pygame.draw.rect(screen, self.color,       camera.apply(self.rect))
-        pygame.draw.rect(screen, (255, 255, 255),  camera.apply(self.rect), 1)
+        r = camera.apply_tuple(self.rect)
+        pygame.draw.rect(screen, self.color,      r)
+        pygame.draw.rect(screen, (255, 255, 255), r, 1)
