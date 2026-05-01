@@ -105,6 +105,10 @@ CRAFT_INGREDIENT_OK    = (90,  210, 100)   # green — have enough
 CRAFT_INGREDIENT_MISS  = (210, 90,  90)    # red — not enough
 CRAFT_FOOTER_COLOR     = (120, 120, 140)   # muted — controls hint
 
+# Death / respawn
+DEATH_OVERLAY_DURATION = 2.0            # seconds before respawn
+DEATH_TEXT_COLOR       = (255, 60, 60)  # bright red — "YOU DIED" text
+
 # HUD colors
 HUD_HEALTH_BG      = (80,  20,  20)   # dark red — empty bar background
 HUD_HEALTH_FG      = (220, 50,  50)   # bright red — health fill

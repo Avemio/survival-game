@@ -10,7 +10,8 @@ import random
 import pygame
 
 from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
-                                   BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR, ENEMY_ATTACK_COLOR)
+                                   BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR, ENEMY_ATTACK_COLOR,
+                                   DEATH_OVERLAY_DURATION, DEATH_TEXT_COLOR)
 from game.core.camera        import Camera
 from game.entities.player    import Player
 from game.entities.item_drop import ItemDrop
@@ -86,12 +87,22 @@ class Engine:
         for sp in self.save_points:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
 
+        # Death overlay — surface + font built once at init (never inside draw)
+        self.death_timer    = 0.0
+        self._death_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self._death_overlay.fill((120, 0, 0, 180))
+        self._death_font    = pygame.font.SysFont(None, 96)
+
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
 
             if event.type == pygame.KEYDOWN:
+                # Block all key input during the death overlay countdown
+                if self.death_timer > 0:
+                    continue
+
                 if event.key == pygame.K_ESCAPE:
                     if self.crafting_menu.open:
                         self.crafting_menu.close()
@@ -112,12 +123,23 @@ class Engine:
                                 self.dialogue_box.start(npc.name, npc.dialogue_lines)
                                 break
 
+                elif event.key == pygame.K_f:
+                    if not self.crafting_menu.open and not self.dialogue_box.open:
+                        self._use_hotbar_item()
+
                 # Forward navigation keys to the crafting menu while it's open
                 if self.crafting_menu.open:
                     self.crafting_menu.handle_event(event)
 
     def update(self, dt):
         self.crafting_menu.update(dt)
+
+        # Death countdown — world paused; respawn fires when timer expires
+        if self.death_timer > 0:
+            self.death_timer -= dt
+            if self.death_timer <= 0:
+                self._respawn()
+            return
 
         # Pause all world simulation while any overlay is open
         if self.crafting_menu.open or self.dialogue_box.open:
@@ -131,6 +153,9 @@ class Engine:
         self._update_save_points(dt)
         self._update_zone_exits()
         self.camera.update(self.player.rect)
+
+        if self.player.health <= 0:
+            self.death_timer = DEATH_OVERLAY_DURATION
 
     def _update_enemies(self, dt):
         living = []
@@ -249,6 +274,78 @@ class Engine:
         for sp in self.save_points:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
 
+    def _use_hotbar_item(self):
+        """Consume one of the selected hotbar item and apply its use effect."""
+        slot_idx = self.player.hotbar_slot
+        slot     = self.player.inventory.slots[slot_idx]
+        if not slot:
+            return
+        item_def = self.player.inventory.item_defs.get(slot.item_id, {})
+        use = item_def.get("use")
+        if use == "heal":
+            if self.player.health >= self.player.max_health:
+                return   # already full — don't waste the potion
+            heal = item_def.get("heal_amount", 0)
+            self.player.health = min(self.player.max_health, self.player.health + heal)
+            self.player.inventory.remove(slot_idx, 1)
+
+    def _respawn(self):
+        """Reload from save file and restore the world to its saved state."""
+        self.death_timer = 0.0
+
+        # Close any open overlays
+        self.crafting_menu.close()
+        self.dialogue_box.close()
+
+        save_data = load_game()
+        zone_id   = save_data.get("zone", "zone_01") if save_data else self.world.zone_id
+
+        # Reload the zone so enemies and drops are fresh
+        self.world.transition_to(zone_id)
+        self.platforms   = self.world.platforms
+        self.enemies     = self.world.enemies
+        self.save_points = self.world.save_points
+        self.npcs        = self.world.npcs
+        self.exits       = self.world.exits
+        self.item_drops  = self.world.item_drops
+
+        # Restore player state from save, or reset to spawn if no save exists
+        if save_data:
+            player_data = save_data.get("player", {})
+            px = player_data.get("x", self.world.spawn[0])
+            py = player_data.get("y", self.world.spawn[1])
+            self.player.health = player_data.get("health", self.player.max_health)
+            inv_data = player_data.get("inventory")
+            if inv_data:
+                self.player.inventory.load_slots(inv_data)
+            raw = save_data.get("collected_zone_drops", {})
+            if isinstance(raw, list):
+                self.collected_zone_drops = {zone_id: set(raw)}
+            else:
+                self.collected_zone_drops = {k: set(v) for k, v in raw.items()}
+        else:
+            px, py = self.world.spawn
+            self.player.health = self.player.max_health
+
+        self.player.rect.topleft = (px, py)
+        self.player.pos.x        = px
+        self.player.pos.y        = py
+        self.player.velocity.x   = 0
+        self.player.velocity.y   = 0
+        self.player.active_hitbox = None
+
+        # Filter already-collected zone drops
+        already = self.collected_zone_drops.get(zone_id, set())
+        self.item_drops[:] = [
+            d for d in self.item_drops if d.zone_drop_index not in already
+        ]
+
+        # Pre-warm save point overlap so respawn location doesn't flash
+        for sp in self.save_points:
+            sp.was_overlapping = sp.rect.colliderect(self.player.rect)
+
+        self.camera.update(self.player.rect)
+
     def draw(self):
         self.screen.fill(BG_COLOR)
 
@@ -297,6 +394,13 @@ class Engine:
 
         # Dialogue box — drawn over everything when open
         self.dialogue_box.draw(self.screen)
+
+        # Death overlay — drawn last so it covers all UI
+        if self.death_timer > 0:
+            self.screen.blit(self._death_overlay, (0, 0))
+            text = self._death_font.render("YOU DIED", True, DEATH_TEXT_COLOR)
+            self.screen.blit(text, (SCREEN_WIDTH  // 2 - text.get_width()  // 2,
+                                    SCREEN_HEIGHT // 2 - text.get_height() // 2))
 
         pygame.display.flip()
 

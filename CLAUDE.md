@@ -46,8 +46,8 @@ data/
 ---
 
 ## Current status
-**Last completed:** M9 — zone transitions + second zone  
-**Next:** M10 — Combat complete (enemy AI, enemy damage, player death/respawn, item usage)
+**Last completed:** M10B — player death/respawn + item usage  
+**Next:** M11 — Sprites + sound
 
 Full milestone table in `Survival Game.md` in the second brain.
 

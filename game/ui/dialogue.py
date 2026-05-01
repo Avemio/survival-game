@@ -76,6 +76,9 @@ class DialogueBox:
         else:
             self._rebuild_wrap()
 
+    def close(self):
+        self._open = False
+
     # ------------------------------------------------------------------
     # Draw (called by engine each frame; no-ops when closed)
     # ------------------------------------------------------------------
