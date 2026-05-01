@@ -37,11 +37,22 @@ ATTACK_HEIGHT   = 64    # vertical size — matches player height
 ATTACK_DURATION = 0.18  # seconds the hitbox stays active per swing
 ATTACK_COOLDOWN = 0.45  # seconds before player can swing again
 
-# Enemy (base stats — specific enemies will override in data later)
+# Enemy base stats (specific enemies override these via enemies.json)
 ENEMY_WIDTH        = 40
 ENEMY_HEIGHT       = 60
 ENEMY_HEALTH       = 100
-HIT_FLASH_DURATION = 0.12   # seconds enemy flashes red after taking damage
+HIT_FLASH_DURATION = 0.12   # seconds enemy flashes white after taking damage
+
+# Enemy AI
+ENEMY_SPEED           = 80     # patrol speed px/s
+ENEMY_CHASE_SPEED     = 180    # chase speed px/s (outrunnable at player 280 but not by much)
+ENEMY_AGGRO_RANGE     = 300    # px: player within this triggers chase
+ENEMY_DEAGGRO_RANGE   = 500    # px: player beyond this, return to patrol
+ENEMY_ATTACK_RANGE    = 65     # px: begin wind-up when this close horizontally
+ENEMY_ATTACK_DAMAGE   = 15     # hp per hit (player max = 100)
+ENEMY_ATTACK_COOLDOWN = 1.5    # seconds between enemy swings
+ENEMY_WINDUP_COLOR    = (255, 160,  30)  # orange — winding up to swing
+ENEMY_ATTACK_COLOR    = (255,  80,  50)  # red-orange — enemy hitbox outline (debug)
 
 # HUD layout
 HUD_HEALTH_X      = 20     # distance from left edge

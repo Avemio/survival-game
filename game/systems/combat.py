@@ -12,14 +12,14 @@ from game.settings import (
 
 
 class AttackHitbox:
-    def __init__(self, owner):
+    def __init__(self, owner, damage=ATTACK_DAMAGE):
         """
-        owner   — the Player; hitbox is positioned in front of them based on facing.
-        facing  — owner.facing at spawn time (1 = right, -1 = left).
+        owner   — the entity swinging (Player or Enemy); must have .facing and .rect.
+        damage  — hp to deal on hit; defaults to ATTACK_DAMAGE for the player.
         """
         self.owner      = owner
         self.facing     = owner.facing
-        self.damage     = ATTACK_DAMAGE
+        self.damage     = damage
         self.timer      = ATTACK_DURATION
         self.already_hit = set()          # enemies we've already damaged this swing
 

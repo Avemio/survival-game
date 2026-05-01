@@ -165,5 +165,8 @@ class Player:
     # Draw
     # ------------------------------------------------------------------
 
+    def take_damage(self, amount):
+        self.health = max(0, self.health - amount)
+
     def draw(self, screen, camera):
         pygame.draw.rect(screen, PLAYER_COLOR, camera.apply_tuple(self.rect))

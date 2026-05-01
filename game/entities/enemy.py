@@ -1,33 +1,78 @@
 """
 entities/enemy.py
-A basic static enemy — no AI yet, just takes damage and flashes on hit.
-Owns: rect, health, hit-flash timer, alive flag, drawing.
-Does NOT own: AI/movement (later milestone), combat resolution (engine/systems).
+Enemy entity with a three-state AI: PATROL → CHASE → ATTACK.
+Owns: rect, float position, velocity, physics, state machine, hit-flash, alive flag, drawing.
+Does NOT own: combat resolution (engine._update_enemy_attacks), drops (engine._spawn_drops).
+
+State transitions:
+  PATROL  — walks back and forth; edge probe prevents falling off platforms;
+             wall hits flip direction. Transitions to CHASE when player enters aggro_range.
+  CHASE   — moves toward the player at chase_speed with full gravity/physics.
+             Returns to PATROL when player leaves deaggro_range.
+             Transitions to ATTACK when player enters attack_range and cooldown is ready.
+  ATTACK  — stops, winds up for _WINDUP_DURATION seconds (turns orange), then spawns
+             an AttackHitbox. Returns to CHASE immediately after the hitbox is live.
+             Engine resolves the hitbox against the player.
 """
 
 import pygame
+from enum import Enum, auto
 from game.settings import (
     ENEMY_WIDTH, ENEMY_HEIGHT, ENEMY_HEALTH,
-    ENEMY_COLOR, ENEMY_HIT_COLOR, HIT_FLASH_DURATION
+    ENEMY_COLOR, ENEMY_HIT_COLOR, ENEMY_WINDUP_COLOR,
+    HIT_FLASH_DURATION,
+    ENEMY_SPEED, ENEMY_CHASE_SPEED,
+    ENEMY_AGGRO_RANGE, ENEMY_DEAGGRO_RANGE,
+    ENEMY_ATTACK_RANGE, ENEMY_ATTACK_DAMAGE, ENEMY_ATTACK_COOLDOWN,
+    GRAVITY, MAX_FALL_SPEED,
 )
+from game.systems.combat import AttackHitbox
+
+
+class EnemyState(Enum):
+    PATROL = auto()
+    CHASE  = auto()
+    ATTACK = auto()
+
+
+_WINDUP_DURATION = 0.4   # seconds of orange wind-up before hitbox spawns
+_EDGE_PROBE_W    = 4     # width of the ground-ahead sensor rect
+_EDGE_PROBE_H    = 8     # height — tall enough to catch slightly uneven platforms
 
 
 class Enemy:
     def __init__(self, x, y, stats=None):
         """
-        stats — optional dict from enemies.json, e.g. {"health": 100, "width": 40, "height": 60}
-                Any missing key falls back to the settings.py constant, so Enemy(x, y)
-                still works fine for quick tests without a data file.
+        stats — optional dict from enemies.json.  Any missing key falls back to
+                the settings.py constant, so Enemy(x, y) still works for quick tests.
         """
         stats = stats or {}
         w = stats.get("width",  ENEMY_WIDTH)
         h = stats.get("height", ENEMY_HEIGHT)
 
-        self.rect        = pygame.Rect(x, y, w, h)
-        self.health      = stats.get("health", ENEMY_HEALTH)
-        self.alive       = True
-        self.hit_flash   = 0.0     # countdown in seconds; >0 means flashing white
-        self.loot        = stats.get("drops", [])   # list of drop defs from enemies.json
+        self.rect     = pygame.Rect(x, y, w, h)
+        self.pos      = pygame.math.Vector2(x, y)   # float position drives rect
+        self.velocity = pygame.math.Vector2(0, 0)
+
+        self.health    = stats.get("health", ENEMY_HEALTH)
+        self.alive     = True
+        self.hit_flash = 0.0   # countdown; >0 = flashing white
+        self.loot      = stats.get("drops", [])
+        self.facing    = 1     # 1 = right, -1 = left
+
+        # AI stats — read from data, fall back to settings defaults
+        self.patrol_speed    = stats.get("speed",           ENEMY_SPEED)
+        self.chase_speed     = stats.get("chase_speed",     ENEMY_CHASE_SPEED)
+        self.aggro_range     = stats.get("aggro_range",     ENEMY_AGGRO_RANGE)
+        self.deaggro_range   = stats.get("deaggro_range",   ENEMY_DEAGGRO_RANGE)
+        self.attack_range    = stats.get("attack_range",    ENEMY_ATTACK_RANGE)
+        self.attack_damage   = stats.get("attack_damage",   ENEMY_ATTACK_DAMAGE)
+        self.attack_cooldown = stats.get("attack_cooldown", ENEMY_ATTACK_COOLDOWN)
+
+        self.state         = EnemyState.PATROL
+        self._attack_timer = 0.0   # counts down to 0; 0 = ready to attack
+        self._windup_timer = 0.0   # counts down to 0 while winding up
+        self.active_hitbox = None  # set during ATTACK; cleared by engine when expired
 
     # ------------------------------------------------------------------
     # Damage
@@ -40,17 +85,127 @@ class Enemy:
             self.alive = False
 
     # ------------------------------------------------------------------
-    # Update (called by engine each frame)
+    # Update — called by engine each frame with player and platforms
     # ------------------------------------------------------------------
 
-    def update(self, dt):
-        if self.hit_flash > 0:
-            self.hit_flash -= dt
+    def update(self, dt, player, platforms):
+        if not self.alive:
+            return
+
+        # Tick timers (always, regardless of state)
+        if self.hit_flash     > 0: self.hit_flash     -= dt
+        if self._attack_timer > 0: self._attack_timer -= dt
+
+        # Gravity — applied every frame; _resolve_y zeroes it on landing
+        self.velocity.y += GRAVITY * dt
+        if self.velocity.y > MAX_FALL_SPEED:
+            self.velocity.y = MAX_FALL_SPEED
+
+        # Horizontal distance to player (signed: positive = player is to the right)
+        dx   = player.rect.centerx - self.rect.centerx
+        dist = abs(dx)
+
+        # State machine
+        if self.state == EnemyState.PATROL:
+            self._do_patrol(platforms)
+            if dist < self.aggro_range:
+                self.state = EnemyState.CHASE
+
+        elif self.state == EnemyState.CHASE:
+            if dist > self.deaggro_range:
+                self.state = EnemyState.PATROL
+            elif dist <= self.attack_range and self._attack_timer <= 0:
+                self._begin_attack(dx)
+            else:
+                self._do_chase(dx)
+
+        elif self.state == EnemyState.ATTACK:
+            self._do_attack_tick(dt)
+
+        # Move and resolve collisions
+        self._move(dt, platforms)
+
+    # ------------------------------------------------------------------
+    # State behaviours
+    # ------------------------------------------------------------------
+
+    def _do_patrol(self, platforms):
+        # Edge probe: a small rect just ahead of and below the enemy's feet.
+        # If no platform overlaps it, we're about to walk off the edge — turn around.
+        probe_x = (self.rect.right       if self.facing == 1
+                   else self.rect.left - _EDGE_PROBE_W)
+        probe   = pygame.Rect(probe_x, self.rect.bottom, _EDGE_PROBE_W, _EDGE_PROBE_H)
+        if not any(probe.colliderect(p) for p in platforms):
+            self.facing *= -1
+
+        self.velocity.x = self.patrol_speed * self.facing
+
+    def _do_chase(self, dx):
+        self.facing     = 1 if dx > 0 else -1
+        self.velocity.x = self.chase_speed * self.facing
+
+    def _begin_attack(self, dx):
+        self.facing        = 1 if dx > 0 else -1
+        self.velocity.x    = 0
+        self._windup_timer = _WINDUP_DURATION
+        self.state         = EnemyState.ATTACK
+
+    def _do_attack_tick(self, dt):
+        self.velocity.x    = 0
+        self._windup_timer -= dt
+        # Spawn hitbox once wind-up finishes (and no hitbox already active)
+        if self._windup_timer <= 0 and self.active_hitbox is None:
+            self.active_hitbox = AttackHitbox(self, self.attack_damage)
+            self._attack_timer = self.attack_cooldown
+            self.state         = EnemyState.CHASE   # hitbox lives on; engine clears it
+
+    # ------------------------------------------------------------------
+    # Physics + collision resolution
+    # ------------------------------------------------------------------
+
+    def _move(self, dt, platforms):
+        # X axis — move then resolve
+        self.pos.x  += self.velocity.x * dt
+        self.rect.x  = int(self.pos.x)
+        self._resolve_x(platforms)
+
+        # Y axis — move then resolve
+        self.pos.y  += self.velocity.y * dt
+        self.rect.y  = int(self.pos.y)
+        self._resolve_y(platforms)
+
+    def _resolve_x(self, platforms):
+        for p in platforms:
+            if self.rect.colliderect(p):
+                if self.velocity.x > 0:
+                    self.rect.right = p.left
+                elif self.velocity.x < 0:
+                    self.rect.left  = p.right
+                self.velocity.x = 0
+                self.pos.x      = self.rect.x
+                # Wall hit during patrol — turn around (same as an edge)
+                if self.state == EnemyState.PATROL:
+                    self.facing *= -1
+
+    def _resolve_y(self, platforms):
+        for p in platforms:
+            if self.rect.colliderect(p):
+                if self.velocity.y > 0:    # landing
+                    self.rect.bottom = p.top
+                elif self.velocity.y < 0:  # hitting ceiling
+                    self.rect.top    = p.bottom
+                self.velocity.y = 0
+                self.pos.y      = self.rect.y
 
     # ------------------------------------------------------------------
     # Draw
     # ------------------------------------------------------------------
 
     def draw(self, screen, camera):
-        color = ENEMY_HIT_COLOR if self.hit_flash > 0 else ENEMY_COLOR
+        if self.hit_flash > 0:
+            color = ENEMY_HIT_COLOR       # white flash on hit — overrides all
+        elif self.state == EnemyState.ATTACK:
+            color = ENEMY_WINDUP_COLOR    # orange — winding up to swing
+        else:
+            color = ENEMY_COLOR           # red — normal
         pygame.draw.rect(screen, color, camera.apply_tuple(self.rect))

@@ -10,7 +10,7 @@ import random
 import pygame
 
 from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
-                                   BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR)
+                                   BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR, ENEMY_ATTACK_COLOR)
 from game.core.camera        import Camera
 from game.entities.player    import Player
 from game.entities.item_drop import ItemDrop
@@ -126,6 +126,7 @@ class Engine:
         self.player.update(dt, self.platforms)
         self._update_enemies(dt)
         self._update_combat(dt)
+        self._update_enemy_attacks(dt)
         self._update_item_drops()
         self._update_save_points(dt)
         self._update_zone_exits()
@@ -134,7 +135,7 @@ class Engine:
     def _update_enemies(self, dt):
         living = []
         for enemy in self.enemies:
-            enemy.update(dt)
+            enemy.update(dt, self.player, self.platforms)
             if enemy.alive:
                 living.append(enemy)
             else:
@@ -169,6 +170,19 @@ class Engine:
                 else:
                     drop.quantity = leftover   # partial pickup if inventory was nearly full
         self.item_drops[:] = [d for d in self.item_drops if d.alive]
+
+    def _update_enemy_attacks(self, dt):
+        for enemy in self.enemies:
+            hitbox = enemy.active_hitbox
+            if not hitbox:
+                continue
+            hitbox.update(dt)
+            if (self.player not in hitbox.already_hit
+                    and hitbox.rect.colliderect(self.player.rect)):
+                self.player.take_damage(hitbox.damage)
+                hitbox.already_hit.add(self.player)
+            if hitbox.expired:
+                enemy.active_hitbox = None
 
     def _update_combat(self, dt):
         hitbox = self.player.active_hitbox
@@ -265,11 +279,15 @@ class Engine:
         # Draw player on top
         self.player.draw(self.screen, self.camera)
 
-        # Draw attack hitbox outline (debug — remove when sprites exist)
+        # Draw attack hitboxes (debug — remove when sprites exist)
         hitbox = self.player.active_hitbox
         if hitbox:
             pygame.draw.rect(self.screen, ATTACK_COLOR,
                              self.camera.apply_tuple(hitbox.rect), 2)
+        for enemy in self.enemies:
+            if enemy.active_hitbox:
+                pygame.draw.rect(self.screen, ENEMY_ATTACK_COLOR,
+                                 self.camera.apply_tuple(enemy.active_hitbox.rect), 2)
 
         # HUD — drawn last, in screen space (no camera offset)
         self.hud.draw(self.screen)
