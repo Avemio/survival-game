@@ -51,6 +51,7 @@ ENEMY_DEAGGRO_RANGE   = 500    # px: player beyond this, return to patrol
 ENEMY_ATTACK_RANGE    = 65     # px: begin wind-up when this close horizontally
 ENEMY_ATTACK_DAMAGE   = 15     # hp per hit (player max = 100)
 ENEMY_ATTACK_COOLDOWN = 1.5    # seconds between enemy swings
+ENEMY_PATROL_RADIUS   = 200    # px: max distance enemy wanders from its spawn X
 ENEMY_WINDUP_COLOR    = (255, 160,  30)  # orange — winding up to swing
 ENEMY_ATTACK_COLOR    = (255,  80,  50)  # red-orange — enemy hitbox outline (debug)
 

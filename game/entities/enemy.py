@@ -24,6 +24,7 @@ from game.settings import (
     ENEMY_SPEED, ENEMY_CHASE_SPEED,
     ENEMY_AGGRO_RANGE, ENEMY_DEAGGRO_RANGE,
     ENEMY_ATTACK_RANGE, ENEMY_ATTACK_DAMAGE, ENEMY_ATTACK_COOLDOWN,
+    ENEMY_PATROL_RADIUS,
     GRAVITY, MAX_FALL_SPEED,
 )
 from game.systems.combat import AttackHitbox
@@ -68,6 +69,8 @@ class Enemy:
         self.attack_range    = stats.get("attack_range",    ENEMY_ATTACK_RANGE)
         self.attack_damage   = stats.get("attack_damage",   ENEMY_ATTACK_DAMAGE)
         self.attack_cooldown = stats.get("attack_cooldown", ENEMY_ATTACK_COOLDOWN)
+        self.patrol_radius   = stats.get("patrol_radius",   ENEMY_PATROL_RADIUS)
+        self._spawn_x        = float(x)   # leash anchor — enemy won't patrol past ± patrol_radius
 
         self.state         = EnemyState.PATROL
         self._attack_timer = 0.0   # counts down to 0; 0 = ready to attack
@@ -114,8 +117,12 @@ class Enemy:
         elif self.state == EnemyState.CHASE:
             if dist > self.deaggro_range:
                 self.state = EnemyState.PATROL
-            elif dist <= self.attack_range and self._attack_timer <= 0:
-                self._begin_attack(dx)
+            elif dist <= self.attack_range:
+                # Close enough — stop and face the player; swing when cooldown allows
+                self.facing     = 1 if dx > 0 else -1
+                self.velocity.x = 0
+                if self._attack_timer <= 0:
+                    self._begin_attack(dx)
             else:
                 self._do_chase(dx)
 
@@ -130,13 +137,20 @@ class Enemy:
     # ------------------------------------------------------------------
 
     def _do_patrol(self, platforms):
-        # Edge probe: a small rect just ahead of and below the enemy's feet.
-        # If no platform overlaps it, we're about to walk off the edge — turn around.
-        probe_x = (self.rect.right       if self.facing == 1
-                   else self.rect.left - _EDGE_PROBE_W)
-        probe   = pygame.Rect(probe_x, self.rect.bottom, _EDGE_PROBE_W, _EDGE_PROBE_H)
-        if not any(probe.colliderect(p) for p in platforms):
-            self.facing *= -1
+        # Leash: don't wander beyond patrol_radius from spawn X — keeps enemies
+        # near their placed position on long or continuous ground.
+        if self.rect.centerx > self._spawn_x + self.patrol_radius:
+            self.facing = -1
+        elif self.rect.centerx < self._spawn_x - self.patrol_radius:
+            self.facing = 1
+        else:
+            # Edge probe: a small rect just ahead of and below the enemy's feet.
+            # If no platform overlaps it, we're about to walk off — turn around.
+            probe_x = (self.rect.right       if self.facing == 1
+                       else self.rect.left - _EDGE_PROBE_W)
+            probe   = pygame.Rect(probe_x, self.rect.bottom, _EDGE_PROBE_W, _EDGE_PROBE_H)
+            if not any(probe.colliderect(p) for p in platforms):
+                self.facing *= -1
 
         self.velocity.x = self.patrol_speed * self.facing
 
