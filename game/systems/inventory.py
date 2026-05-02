@@ -102,6 +102,22 @@ class Inventory:
         if slot.quantity <= 0:
             self.slots[slot_index] = None
 
+    def consume(self, item_id, quantity=1):
+        """
+        Remove `quantity` of item_id from inventory, consuming across slots.
+        Does nothing if there isn't enough (caller should check count() first).
+        """
+        remaining = quantity
+        for i, slot in enumerate(self.slots):
+            if slot and slot.item_id == item_id:
+                take = min(remaining, slot.quantity)
+                slot.quantity -= take
+                remaining     -= take
+                if slot.quantity <= 0:
+                    self.slots[i] = None
+                if remaining == 0:
+                    return
+
     # ------------------------------------------------------------------
     # Serialization — used by saving.py
     # ------------------------------------------------------------------

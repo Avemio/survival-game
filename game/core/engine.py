@@ -6,12 +6,17 @@ Does NOT own: game logic, combat, zone data.
 """
 
 import sys
+import math
 import random
 import pygame
 
 from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
                                    BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR, ENEMY_ATTACK_COLOR,
-                                   DEATH_OVERLAY_DURATION, DEATH_TEXT_COLOR)
+                                   DEATH_OVERLAY_DURATION, DEATH_TEXT_COLOR,
+                                   ARROW_SPEED, ARROW_DAMAGE, ARROW_WIDTH, ARROW_HEIGHT,
+                                   WIND_MAX, WIND_CHANGE_RATE, WIND_TARGET_MIN, WIND_TARGET_MAX,
+                                   AIM_PREVIEW_STEPS, AIM_PREVIEW_STEP_T, AIM_DOT_COLOR,
+                                   ARROW_GRAVITY)
 from game.core.camera        import Camera
 from game.entities.player    import Player
 from game.entities.item_drop import ItemDrop
@@ -21,6 +26,7 @@ from game.ui.menus           import CraftingMenu
 from game.ui.dialogue        import DialogueBox
 from game.systems.saving     import save_game, load_game
 from game.systems.crafting   import CraftingSystem
+from game.entities.projectile import Projectile
 
 
 class Engine:
@@ -93,10 +99,24 @@ class Engine:
         self._death_overlay.fill((120, 0, 0, 180))
         self._death_font    = pygame.font.SysFont(None, 96)
 
+        # Projectiles
+        self.projectiles = []
+
+        # Wind — drifts slowly toward a random target strength
+        self.wind          = 0.0
+        self._wind_target  = 0.0
+        self._wind_timer   = random.uniform(WIND_TARGET_MIN, WIND_TARGET_MAX)
+
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_x and self.player.aiming:
+                    self._fire_arrow()
+                    self.player.aiming    = False
+                    self.player.aim_angle = 0.0
 
             if event.type == pygame.KEYDOWN:
                 # Block all key input during the death overlay countdown
@@ -127,6 +147,10 @@ class Engine:
                     if not self.crafting_menu.open and not self.dialogue_box.open:
                         self._use_hotbar_item()
 
+                elif event.key == pygame.K_x:
+                    if not self.crafting_menu.open and not self.dialogue_box.open:
+                        self._start_aim()
+
                 # Forward navigation keys to the crafting menu while it's open
                 if self.crafting_menu.open:
                     self.crafting_menu.handle_event(event)
@@ -145,10 +169,12 @@ class Engine:
         if self.crafting_menu.open or self.dialogue_box.open:
             return
 
+        self._update_wind(dt)
         self.player.update(dt, self.platforms)
         self._update_enemies(dt)
         self._update_combat(dt)
         self._update_enemy_attacks(dt)
+        self._update_projectiles(dt)
         self._update_item_drops()
         self._update_save_points(dt)
         self._update_zone_exits()
@@ -263,16 +289,59 @@ class Engine:
 
         # Teleport player to the new zone's spawn point
         sx, sy = self.world.spawn
-        self.player.rect.topleft = (sx, sy)
-        self.player.pos.x        = sx
-        self.player.pos.y        = sy
-        self.player.velocity.x   = 0
-        self.player.velocity.y   = 0
+        self.player.rect.topleft  = (sx, sy)
+        self.player.pos.x         = sx
+        self.player.pos.y         = sy
+        self.player.velocity.x    = 0
+        self.player.velocity.y    = 0
         self.player.active_hitbox = None   # cancel any in-flight swing
+        self.player.aiming        = False
+        self.projectiles.clear()
 
         # Pre-warm save point overlap so touching the spawn save point doesn't flash
         for sp in self.save_points:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
+
+    def _update_wind(self, dt):
+        self._wind_timer -= dt
+        if self._wind_timer <= 0:
+            self._wind_target = random.uniform(-WIND_MAX, WIND_MAX)
+            self._wind_timer  = random.uniform(WIND_TARGET_MIN, WIND_TARGET_MAX)
+        # Smooth lerp toward the target wind strength
+        self.wind += (self._wind_target - self.wind) * WIND_CHANGE_RATE * dt
+
+    def _update_projectiles(self, dt):
+        for proj in self.projectiles:
+            proj.update(dt, self.platforms, self.wind)
+            if not proj.alive:
+                continue
+            for enemy in self.enemies:
+                if enemy not in proj.already_hit and proj.rect.colliderect(enemy.rect):
+                    enemy.take_damage(proj.damage)
+                    proj.already_hit.add(enemy)
+                    proj.alive = False
+                    break
+        self.projectiles[:] = [p for p in self.projectiles if p.alive]
+
+    def _start_aim(self):
+        """Begin aiming if the player has a bow in the selected hotbar slot."""
+        slot = self.player.inventory.slots[self.player.hotbar_slot]
+        if slot and slot.item_id == "bow":
+            self.player.aiming = True
+
+    def _fire_arrow(self):
+        """Spawn a projectile if arrows are available; consume one."""
+        if self.player.inventory.count("arrow") <= 0:
+            return
+        self.player.inventory.consume("arrow", 1)
+
+        angle_rad = math.radians(self.player.aim_angle)
+        vx = math.cos(angle_rad) * ARROW_SPEED * self.player.facing
+        vy = -math.sin(angle_rad) * ARROW_SPEED   # negative: up is -y in pygame
+
+        x = self.player.rect.centerx - ARROW_WIDTH  // 2
+        y = self.player.rect.centery - ARROW_HEIGHT // 2
+        self.projectiles.append(Projectile(x, y, vx, vy, ARROW_DAMAGE))
 
     def _use_hotbar_item(self):
         """Consume one of the selected hotbar item and apply its use effect."""
@@ -327,12 +396,14 @@ class Engine:
             px, py = self.world.spawn
             self.player.health = self.player.max_health
 
-        self.player.rect.topleft = (px, py)
-        self.player.pos.x        = px
-        self.player.pos.y        = py
-        self.player.velocity.x   = 0
-        self.player.velocity.y   = 0
+        self.player.rect.topleft  = (px, py)
+        self.player.pos.x         = px
+        self.player.pos.y         = py
+        self.player.velocity.x    = 0
+        self.player.velocity.y    = 0
         self.player.active_hitbox = None
+        self.player.aiming        = False
+        self.projectiles.clear()
 
         # Filter already-collected zone drops
         already = self.collected_zone_drops.get(zone_id, set())
@@ -345,6 +416,33 @@ class Engine:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
 
         self.camera.update(self.player.rect)
+
+    def _draw_aim_indicator(self):
+        """Draw a dotted trajectory preview arc including gravity and wind."""
+        angle_rad = math.radians(self.player.aim_angle)
+        vx = math.cos(angle_rad) * ARROW_SPEED * self.player.facing
+        vy = -math.sin(angle_rad) * ARROW_SPEED
+
+        px = float(self.player.rect.centerx)
+        py = float(self.player.rect.centery)
+        cur_vx, cur_vy = vx, vy
+
+        for i in range(AIM_PREVIEW_STEPS):
+            cur_vy += ARROW_GRAVITY * AIM_PREVIEW_STEP_T
+            cur_vx += self.wind    * AIM_PREVIEW_STEP_T
+            px     += cur_vx       * AIM_PREVIEW_STEP_T
+            py     += cur_vy       * AIM_PREVIEW_STEP_T
+
+            sx = int(px - self.camera.offset.x)
+            sy = int(py - self.camera.offset.y)
+            if not (0 <= sx <= SCREEN_WIDTH and 0 <= sy <= SCREEN_HEIGHT):
+                break   # dot left the screen — stop drawing
+
+            # Dots shrink and fade as they get further from the player
+            radius = max(1, 3 - i // 7)
+            alpha  = max(40, 220 - i * 10)
+            color  = (AIM_DOT_COLOR[0], AIM_DOT_COLOR[1], AIM_DOT_COLOR[2])
+            pygame.draw.circle(self.screen, color, (sx, sy), radius)
 
     def draw(self):
         self.screen.fill(BG_COLOR)
@@ -376,6 +474,14 @@ class Engine:
         # Draw player on top
         self.player.draw(self.screen, self.camera)
 
+        # Draw projectiles
+        for proj in self.projectiles:
+            proj.draw(self.screen, self.camera)
+
+        # Draw aim indicator while player is aiming
+        if self.player.aiming:
+            self._draw_aim_indicator()
+
         # Draw attack hitboxes (debug — remove when sprites exist)
         hitbox = self.player.active_hitbox
         if hitbox:
@@ -387,7 +493,7 @@ class Engine:
                                  self.camera.apply_tuple(enemy.active_hitbox.rect), 2)
 
         # HUD — drawn last, in screen space (no camera offset)
-        self.hud.draw(self.screen)
+        self.hud.draw(self.screen, self.wind)
 
         # Crafting menu — drawn over HUD when open
         self.crafting_menu.draw(self.screen)

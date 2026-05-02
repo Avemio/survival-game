@@ -109,6 +109,27 @@ CRAFT_FOOTER_COLOR     = (120, 120, 140)   # muted — controls hint
 DEATH_OVERLAY_DURATION = 2.0            # seconds before respawn
 DEATH_TEXT_COLOR       = (255, 60, 60)  # bright red — "YOU DIED" text
 
+# Projectiles (arrows)
+ARROW_SPEED       = 550    # px/s initial launch speed
+ARROW_GRAVITY     = 550    # px/s² — lighter than player gravity for a graceful arc
+ARROW_DAMAGE      = 20     # hp per hit
+ARROW_WIDTH       = 14     # px — visual / hitbox width
+ARROW_HEIGHT      = 4      # px — visual / hitbox height
+ARROW_ANGLE_MAX   = 60     # max degrees above/below horizontal
+ARROW_ANGLE_SPEED = 90     # degrees per second while adjusting aim
+ARROW_COLOR       = (220, 200, 120)   # warm yellow — arrow in flight
+
+# Wind
+WIND_MAX            = 110   # max wind force in px/s² (applied to vx each frame)
+WIND_CHANGE_RATE    = 1.8   # lerp factor — how snappily wind approaches its target
+WIND_TARGET_MIN     = 3.0   # seconds before wind picks a new target strength
+WIND_TARGET_MAX     = 8.0   # seconds before wind picks a new target strength
+
+# Aim indicator
+AIM_PREVIEW_STEPS  = 20    # number of dots in the trajectory preview
+AIM_PREVIEW_STEP_T = 0.055 # seconds per step (covers ~1.1s of flight time)
+AIM_DOT_COLOR      = (255, 255, 140)  # pale yellow dots
+
 # HUD colors
 HUD_HEALTH_BG      = (80,  20,  20)   # dark red — empty bar background
 HUD_HEALTH_FG      = (220, 50,  50)   # bright red — health fill

@@ -14,7 +14,8 @@ import pygame
 from game.settings import (
     PLAYER_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_COLOR,
     GRAVITY, JUMP_FORCE, JUMP_HOLD_FORCE, MAX_JUMP_TIME, MAX_FALL_SPEED,
-    ATTACK_COOLDOWN, PLAYER_MAX_HEALTH, HOTBAR_SLOTS
+    ATTACK_COOLDOWN, PLAYER_MAX_HEALTH, HOTBAR_SLOTS,
+    ARROW_ANGLE_MAX, ARROW_ANGLE_SPEED
 )
 from game.systems.combat    import AttackHitbox
 from game.systems.inventory import Inventory
@@ -43,6 +44,10 @@ class Player:
         # Inventory + hotbar
         self.inventory    = Inventory(size=HOTBAR_SLOTS)
         self._hotbar_slot = 0   # backing value; use the property to set safely
+
+        # Bow aiming
+        self.aiming    = False   # True while X is held
+        self.aim_angle = 0.0     # degrees above horizontal (0 = flat, 45 = up-diagonal)
 
     @property
     def hotbar_slot(self):
@@ -82,8 +87,17 @@ class Player:
             self.attack_cooldown = ATTACK_COOLDOWN
             self.active_hitbox   = AttackHitbox(self)
 
-        # Jump
-        jump_key = keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]
+        # Bow aim angle — UP/DOWN adjust angle while X is held (engine fires on key-up)
+        if self.aiming:
+            if keys[pygame.K_UP]:
+                self.aim_angle = min(ARROW_ANGLE_MAX,  self.aim_angle + ARROW_ANGLE_SPEED * dt)
+            if keys[pygame.K_DOWN]:
+                self.aim_angle = max(-ARROW_ANGLE_MAX, self.aim_angle - ARROW_ANGLE_SPEED * dt)
+
+        # Jump — UP arrow is stolen by aim angle while aiming, so exclude it then
+        jump_key = keys[pygame.K_SPACE] or keys[pygame.K_w] or (
+            keys[pygame.K_UP] and not self.aiming
+        )
 
         if jump_key:
             if self.on_ground and not self.jump_held:

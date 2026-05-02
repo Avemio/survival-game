@@ -25,6 +25,7 @@
 | `entities/enemy.py` | Enemy class — health, hit-flash timer, take_damage(), alive flag, loot table |
 | `entities/item_drop.py` | World item drop — rect, item_id, quantity, color, alive flag, zone_drop_index |
 | `entities/npc.py` | NPC class — rect, name, color, dialogue lines, [E] Talk proximity prompt |
+| `entities/projectile.py` | Arrow projectile — physics (gravity + wind), platform collision, enemy hit, oriented line draw |
 
 ## systems/
 | File | Purpose |
