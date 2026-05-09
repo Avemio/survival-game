@@ -298,7 +298,6 @@ class Engine:
                     and hitbox.rect.colliderect(enemy.rect)):
                 enemy.take_damage(hitbox.damage)
                 hitbox.already_hit.add(enemy)
-                self.camera.shake(intensity=4, duration=0.10)
                 self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 6)
         if hitbox.expired:
             self.player.active_hitbox = None
