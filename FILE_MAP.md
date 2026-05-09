@@ -60,6 +60,11 @@
 | `data/zones/zone_01.json` | First zone — platforms, enemy spawns, save points, item drops, NPC, building |
 | `data/zones/zone_01_interior.json` | Interior zone for the Abandoned Cabin — entered via building door |
 
+## tools/
+| File | Purpose |
+|------|---------|
+| `tools/editor.py` | Standalone content editor (Tkinter) — run `python tools/editor.py`; edits all data JSON files; visual zone canvas |
+
 ## assets/
 | Folder | Purpose |
 |--------|---------|
