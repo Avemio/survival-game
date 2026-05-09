@@ -35,9 +35,17 @@ class Camera:
         Center the camera on the target rect each frame.
         target: any pygame.Rect (usually the player)
         dt:     seconds since last frame — used to tick the shake timer.
+
+        X snaps immediately (horizontal movement is fast and direct).
+        Y lerps smoothly so the camera eases down on falls rather than snapping.
         """
-        self.offset.x = target.centerx - SCREEN_WIDTH  // 2
-        self.offset.y = target.centery - SCREEN_HEIGHT // 2
+        target_x = float(target.centerx - SCREEN_WIDTH  // 2)
+        target_y = float(target.centery - SCREEN_HEIGHT // 2)
+        self.offset.x = target_x
+        if dt > 0:
+            self.offset.y += (target_y - self.offset.y) * min(1.0, 8.0 * dt)
+        else:
+            self.offset.y = target_y
 
         if self._shake_timer > 0:
             self._shake_timer -= dt

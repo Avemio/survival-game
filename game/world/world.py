@@ -1,8 +1,8 @@
 """
 world/world.py
-Owns the active zone and the enemy type registry.
+Owns the active zone and all data registries (enemies, items, NPCs, dialogue).
 Engine talks to World only — it doesn't need to know Zone exists.
-Zone transitions will live here in M9.
+Zone transitions (transition_to) are also handled here.
 """
 
 import json
@@ -38,7 +38,7 @@ class World:
                     self._npc_types, self._dialogue_data)
 
     def transition_to(self, zone_id):
-        """Swap out the active zone. Engine must re-point its list references after calling this."""
+        """Swap out the active zone. Engine calls _setup_zone() after this to re-point references."""
         self.zone = self._load_zone(zone_id)
 
     # ------------------------------------------------------------------
@@ -76,6 +76,10 @@ class World:
     @property
     def exits(self):
         return self.zone.exits
+
+    @property
+    def buildings(self):
+        return self.zone.buildings
 
     @property
     def bg_color(self):

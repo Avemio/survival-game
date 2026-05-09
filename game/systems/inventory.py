@@ -134,10 +134,10 @@ class Inventory:
         Restore slot contents from a list previously produced by serialize().
         Called by engine after loading a save file.
         """
+        # Reset first so slots beyond the save length don't keep stale items
+        self.slots[:] = [None] * len(self.slots)
         for i, entry in enumerate(slots_data):
             if i >= len(self.slots):
                 break
             if entry and "item_id" in entry and "quantity" in entry:
                 self.slots[i] = InventoryItem(entry["item_id"], entry["quantity"])
-            else:
-                self.slots[i] = None

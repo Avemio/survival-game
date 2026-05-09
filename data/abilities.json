@@ -18,6 +18,8 @@
     "speed":        320,
     "max_distance": 480,
     "height":       50,
+    "cooldown":     1.2,
+    "mana_cost":    20,
     "color":        [80, 180, 255],
     "sound":        "attack_swing"
   },
@@ -106,6 +108,7 @@
     "speed":        280,
     "max_distance": 700,
     "height":       35,
+    "cooldown":     3.0,
     "mana_cost":    45,
     "status_effect": {"type": "stun", "duration": 1.8},
     "color":        [180, 130, 60],

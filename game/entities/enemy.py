@@ -57,11 +57,13 @@ class Enemy:
         self.pos      = pygame.math.Vector2(x, y)   # float position drives rect
         self.velocity = pygame.math.Vector2(0, 0)
 
-        self.health    = stats.get("health", ENEMY_HEALTH)
+        self.health     = stats.get("health", ENEMY_HEALTH)
+        self.max_health = self.health   # for health bar display
         self.alive     = True
         self.hit_flash = 0.0   # countdown; >0 = flashing white
         self.loot      = stats.get("drops", [])
         self.facing    = 1     # 1 = right, -1 = left
+        self.on_ground = False
 
         # AI stats — read from data, fall back to settings defaults
         self.patrol_speed    = stats.get("speed",           ENEMY_SPEED)
@@ -78,6 +80,9 @@ class Enemy:
         self._attack_timer = 0.0
         self._windup_timer = 0.0
         self.active_hitbox = None
+
+        # Cached probe rect for edge detection (avoids per-frame allocation)
+        self._probe = pygame.Rect(0, 0, _EDGE_PROBE_W, _EDGE_PROBE_H)
 
         # Status effects
         self.status_effects: list = []
@@ -113,15 +118,15 @@ class Enemy:
         if self.hit_flash     > 0: self.hit_flash     -= dt
         if self._attack_timer > 0: self._attack_timer -= dt
 
+        # Gravity always applies — stunned enemies fall too (no floating mid-air)
+        self.velocity.y += GRAVITY * dt
+        if self.velocity.y > MAX_FALL_SPEED:
+            self.velocity.y = MAX_FALL_SPEED
+
         if self.stunned:
             self.velocity.x = 0
             self._move(dt, platforms)
             return
-
-        # Gravity — applied every frame; _resolve_y zeroes it on landing
-        self.velocity.y += GRAVITY * dt
-        if self.velocity.y > MAX_FALL_SPEED:
-            self.velocity.y = MAX_FALL_SPEED
 
         # Horizontal distance to player (signed: positive = player is to the right)
         dx   = player.rect.centerx - self.rect.centerx
@@ -144,6 +149,9 @@ class Enemy:
                     self._begin_attack(dx)
             else:
                 self._do_chase(dx)
+                # Jump toward player if they're significantly above and we're grounded
+                if self.on_ground and player.rect.centery < self.rect.centery - 40:
+                    self.velocity.y = -JUMP_FORCE * 0.85
 
         elif self.state == EnemyState.ATTACK:
             self._do_attack_tick(dt)
@@ -163,15 +171,15 @@ class Enemy:
         elif self.rect.centerx < self._spawn_x - self.patrol_radius:
             self.facing = 1
         else:
-            # Edge probe: a small rect just ahead of and below the enemy's feet.
-            # If no platform overlaps it, we're about to walk off — turn around.
-            probe_x = (self.rect.right       if self.facing == 1
+            # Edge probe: reuse cached rect to avoid per-frame allocation.
+            probe_x = (self.rect.right if self.facing == 1
                        else self.rect.left - _EDGE_PROBE_W)
-            probe   = pygame.Rect(probe_x, self.rect.bottom, _EDGE_PROBE_W, _EDGE_PROBE_H)
-            if not any(probe.colliderect(p) for p in platforms):
+            self._probe.x = probe_x
+            self._probe.y = self.rect.bottom
+            if not any(self._probe.colliderect(p) for p in platforms):
                 self.facing *= -1
 
-        self.velocity.x = self.patrol_speed * self.facing
+        self.velocity.x = self.patrol_speed * self.facing * self.slow_factor
 
     def _do_chase(self, dx):
         self.facing     = 1 if dx > 0 else -1
@@ -221,10 +229,12 @@ class Enemy:
                     self.facing *= -1
 
     def _resolve_y(self, platforms):
+        self.on_ground = False
         for p in platforms:
             if self.rect.colliderect(p):
                 if self.velocity.y > 0:    # landing
                     self.rect.bottom = p.top
+                    self.on_ground   = True
                 elif self.velocity.y < 0:  # hitting ceiling
                     self.rect.top    = p.bottom
                 self.velocity.y = 0
@@ -247,3 +257,14 @@ class Enemy:
             else:
                 color = ENEMY_COLOR
             pygame.draw.rect(screen, color, r)
+
+        # Health bar — shown above enemy whenever health < max
+        if self.health < self.max_health:
+            bar_w = r[2]
+            bar_h = 4
+            bar_x = r[0]
+            bar_y = r[1] - 8
+            pygame.draw.rect(screen, (80, 20, 20), (bar_x, bar_y, bar_w, bar_h))
+            fill_w = max(0, int(bar_w * self.health / self.max_health))
+            if fill_w > 0:
+                pygame.draw.rect(screen, (220, 50, 50), (bar_x, bar_y, fill_w, bar_h))

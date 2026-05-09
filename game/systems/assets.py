@@ -28,6 +28,7 @@ class AssetManager:
     def __init__(self):
         self._sprites: dict[str, pygame.Surface] = {}
         self._sounds:  dict[str, pygame.mixer.Sound] = {}
+        self._scaled_cache: dict[tuple, pygame.Surface | None] = {}
         self._current_music: str | None = None
 
         self._load_sprites()
@@ -83,11 +84,12 @@ class AssetManager:
         return self._sprites.get(name)
 
     def get_sprite_scaled(self, name: str, w: int, h: int) -> pygame.Surface | None:
-        """Return the sprite scaled to (w, h), or None if not found."""
-        raw = self._sprites.get(name)
-        if raw is None:
-            return None
-        return pygame.transform.scale(raw, (w, h))
+        """Return the sprite scaled to (w, h), cached by (name, w, h)."""
+        key = (name, w, h)
+        if key not in self._scaled_cache:
+            raw = self._sprites.get(name)
+            self._scaled_cache[key] = pygame.transform.scale(raw, (w, h)) if raw else None
+        return self._scaled_cache[key]
 
     # ------------------------------------------------------------------
     # Sound effects

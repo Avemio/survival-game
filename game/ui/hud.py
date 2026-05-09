@@ -31,14 +31,16 @@ _MANA_BAR_Y = HUD_HEALTH_Y + HUD_HEALTH_H + 5
 
 
 class HUD:
-    def __init__(self, player):
+    def __init__(self, player, ability_system=None):
         self.player = player
+        self._ability_system = ability_system
 
         # Fonts — created once here, never in draw()
         self._font      = pygame.font.SysFont(None, 18)
         self._wind_font = pygame.font.SysFont(None, 16)
         self._num_font  = pygame.font.SysFont(None, 14)
         self._ab_font   = pygame.font.SysFont(None, 16)
+        self._hp_font   = pygame.font.SysFont(None, 16)
 
         # Pre-compute hotbar geometry
         total_w = HOTBAR_SLOTS * HOTBAR_SLOT_SIZE + (HOTBAR_SLOTS - 1) * HOTBAR_SLOT_GAP
@@ -58,11 +60,22 @@ class HUD:
         self._q_label = self._ab_font.render("Q", True, (200, 200, 220))
         self._r_label = self._ab_font.render("R", True, (200, 200, 220))
 
+        # Pre-allocate cooldown overlay surface (full size; blit a subsurface slice in draw)
+        self._cd_overlay = pygame.Surface((ABILITY_SLOT_SIZE, ABILITY_SLOT_SIZE))
+        self._cd_overlay.set_alpha(140)
+        self._cd_overlay.fill((0, 0, 0))
+
+        # Ability name surface cache per slot: (ability_id, Surface) or None
+        self._ab_name_cache = [None, None]
+
         # Per-slot quantity surface cache: (quantity, Surface) or None
         self._qty_cache   = [None] * HOTBAR_SLOTS
 
         # Arrow count cache: (count, Surface)
         self._arrow_cache = (-1, None)
+
+        # Health number cache: (hp_text, Surface)
+        self._hp_cache = ("", None)
 
     # ------------------------------------------------------------------
     # Draw
@@ -89,6 +102,13 @@ class HUD:
         if fill_w > 0:
             pygame.draw.rect(screen, HUD_HEALTH_FG, (x, y, fill_w, h))
         pygame.draw.rect(screen, HUD_HEALTH_BORDER, (x, y, w, h), 2)
+
+        # Numeric HP display — cached; updates only when value changes
+        hp_text = f"{int(self.player.health)} / {self.player.max_health}"
+        if self._hp_cache[0] != hp_text:
+            surf = self._hp_font.render(hp_text, True, WHITE)
+            self._hp_cache = (hp_text, surf)
+        screen.blit(self._hp_cache[1], (x + w + 6, y + 1))
 
     # ------------------------------------------------------------------
     # Mana bar
@@ -163,24 +183,31 @@ class HUD:
 
             ability_id = self.player.ability_slots[slot_idx]
             if ability_id:
-                # Short name truncated
-                name = ability_id.replace("_", " ")[:8]
-                ns   = self._ab_font.render(name, True, (180, 200, 255))
+                # Cached ability name surface — only re-renders when slot changes
+                cache = self._ab_name_cache[slot_idx]
+                if cache is None or cache[0] != ability_id:
+                    name = ability_id.replace("_", " ")[:8]
+                    surf = self._ab_font.render(name, True, (180, 200, 255))
+                    self._ab_name_cache[slot_idx] = (ability_id, surf)
+                ns = self._ab_name_cache[slot_idx][1]
                 screen.blit(ns, (
                     ab_x + (ABILITY_SLOT_SIZE - ns.get_width())  // 2,
                     ab_y + (ABILITY_SLOT_SIZE - ns.get_height()) // 2,
                 ))
-                # Cooldown overlay
+                # Cooldown overlay using pre-allocated surface
                 cd = self.player.ability_cooldowns[slot_idx]
                 if cd > 0:
-                    from game.systems.abilities import AbilitySystem
-                    # Draw grey dim proportional to cooldown remaining
-                    max_cd = 5.0  # rough estimate for overlay height
+                    max_cd = 1.0
+                    if self._ability_system:
+                        ab_def = self._ability_system.get(ability_id)
+                        if ab_def:
+                            max_cd = max(ab_def.get("cooldown", 1.0), 0.001)
                     overlay_h = int(ABILITY_SLOT_SIZE * min(1.0, cd / max_cd))
-                    overlay   = pygame.Surface((ABILITY_SLOT_SIZE, overlay_h))
-                    overlay.set_alpha(140)
-                    overlay.fill((0, 0, 0))
-                    screen.blit(overlay, (ab_x, ab_y + ABILITY_SLOT_SIZE - overlay_h))
+                    if overlay_h > 0:
+                        src = pygame.Rect(0, ABILITY_SLOT_SIZE - overlay_h,
+                                          ABILITY_SLOT_SIZE, overlay_h)
+                        screen.blit(self._cd_overlay,
+                                    (ab_x, ab_y + ABILITY_SLOT_SIZE - overlay_h), src)
 
             # Key label at top-left, border
             screen.blit(label_surf, (ab_x + 3, ab_y + 2))
@@ -237,8 +264,18 @@ class HUD:
         effects = self.player.status_effects
         if not effects:
             return
-        px = HUD_HEALTH_X + HUD_HEALTH_W + 8
+        # Start to the right of the HP number text area
+        px = HUD_HEALTH_X + HUD_HEALTH_W + 80
+        icon_w, icon_h = 14, HUD_HEALTH_H + 4
         for effect in effects:
             color = STATUS_COLORS.get(effect.type, (200, 200, 200))
-            pygame.draw.circle(screen, color, (px + 5, HUD_HEALTH_Y + HUD_HEALTH_H // 2), 5)
-            px += 14
+            icon_r = (px, HUD_HEALTH_Y - 2, icon_w, icon_h)
+            pygame.draw.rect(screen, color, icon_r)
+            pygame.draw.rect(screen, (200, 200, 200), icon_r, 1)
+            # Duration fill bar (shrinks from right as timer counts down)
+            ratio = max(0.0, effect.timer / effect.duration)
+            bar_w = int(icon_w * ratio)
+            if bar_w > 0:
+                pygame.draw.rect(screen, (255, 255, 255),
+                                 (px, HUD_HEALTH_Y + icon_h - 4, bar_w, 2))
+            px += icon_w + 3

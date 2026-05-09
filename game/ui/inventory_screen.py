@@ -159,10 +159,10 @@ class InventoryScreen:
                 # Quantity
                 if item.quantity > 1:
                     cache = self._qty_cache[idx]
-                    if cache is None or cache[0] != item.quantity:
+                    if cache is None or cache[0] != item.item_id or cache[1] != item.quantity:
                         surf = self._font_qty.render(str(item.quantity), True, WHITE)
-                        self._qty_cache[idx] = (item.quantity, surf)
-                    qty_s = self._qty_cache[idx][1]
+                        self._qty_cache[idx] = (item.item_id, item.quantity, surf)
+                    qty_s = self._qty_cache[idx][2]
                     screen.blit(qty_s, (
                         cx + _CELL - qty_s.get_width()  - 3,
                         cy + _CELL - qty_s.get_height() - 2,

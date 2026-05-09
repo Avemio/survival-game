@@ -64,7 +64,7 @@ class CraftingSystem:
         # Consume all ingredients before adding the result so a recipe
         # that both needs and produces the same item works correctly.
         for item_id, qty_needed in recipe["ingredients"].items():
-            self._consume(inventory, item_id, qty_needed)
+            inventory.consume(item_id, qty_needed)
 
         leftover = inventory.add(recipe["result"], recipe.get("count", 1))
 
@@ -76,20 +76,3 @@ class CraftingSystem:
 
         return True
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _consume(inventory, item_id, quantity):
-        """Remove `quantity` of item_id, spanning multiple slots if needed."""
-        remaining = quantity
-        for i, slot in enumerate(inventory.slots):
-            if slot and slot.item_id == item_id:
-                take = min(remaining, slot.quantity)
-                slot.quantity -= take
-                if slot.quantity == 0:
-                    inventory.slots[i] = None
-                remaining -= take
-                if remaining == 0:
-                    return

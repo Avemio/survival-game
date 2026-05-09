@@ -63,8 +63,14 @@ class WaveAttack(_AttackBase):
         self.height       = int(ab.get("height", 28))
         self.traveled     = 0.0
 
-        base_x = owner.rect.right if owner.facing == 1 else owner.rect.left
-        self.rect = pygame.Rect(base_x, owner.rect.bottom - self.height, 1, self.height)
+        # Fixed cast origin — wave travels from here, not from the moving owner
+        if owner.facing == 1:
+            self._origin_x = float(owner.rect.right)
+        else:
+            self._origin_x = float(owner.rect.left)
+        self._origin_y = owner.rect.bottom
+
+        self.rect = pygame.Rect(int(self._origin_x), self._origin_y - self.height, 1, self.height)
 
     def update(self, dt, platforms, enemies, player):
         dist = abs(self.speed) * dt
@@ -73,15 +79,15 @@ class WaveAttack(_AttackBase):
             self.alive = False
             return
 
-        # Grow the wave rect from the owner outward
+        # Grow the wave rect from the fixed cast origin
         if self.speed > 0:
-            self.rect.x     = self.owner.rect.right
+            self.rect.x     = int(self._origin_x)
             self.rect.width = int(self.traveled)
         else:
             self.rect.width = int(self.traveled)
-            self.rect.x     = self.owner.rect.left - self.rect.width
+            self.rect.x     = int(self._origin_x) - self.rect.width
 
-        self.rect.y = self.owner.rect.bottom - self.height
+        self.rect.y = self._origin_y - self.height
 
         for enemy in enemies:
             if self.rect.colliderect(enemy.rect):
@@ -171,8 +177,8 @@ class AuraAttack(_AttackBase):
         self.timer     = float(ab.get("duration", 5.0))
         self.max_timer = self.timer
         self.dps       = float(ab.get("damage_per_second", 0))
-        self._tick     = 0.0
         self._tick_rate = 0.5   # apply damage every 0.5 s
+        self._tick      = self._tick_rate  # first tick after one full interval, not immediately
 
     def _in_radius(self, center) -> bool:
         cx = self.owner.rect.centerx
@@ -193,7 +199,7 @@ class AuraAttack(_AttackBase):
             for enemy in enemies:
                 if self._in_radius(enemy.rect.center):
                     if self.dps > 0:
-                        enemy.take_damage(self.dps * self._tick_rate)
+                        enemy.take_damage(int(self.dps * self._tick_rate))
                     if self.status_def:
                         apply_status(enemy, self.status_def)
 

@@ -39,7 +39,7 @@
 | File | Purpose |
 |------|---------|
 | `world/world.py` | Owns the active zone + all data registries; engine talks here, not to Zone directly |
-| `world/zone.py` | Loads a single zone JSON file; builds platforms, enemies, save points, item drops, NPCs |
+| `world/zone.py` | Loads a single zone JSON file; builds platforms, enemies, save points, item drops, NPCs, buildings |
 
 ## ui/
 | File | Purpose |
@@ -57,7 +57,8 @@
 | `data/recipes.json` | Crafting recipe definitions — result, count, ingredients |
 | `data/npcs.json` | NPC type definitions — name, color, size |
 | `data/dialogue.json` | Dialogue scripts keyed by dialogue_id — ordered list of lines per script |
-| `data/zones/zone_01.json` | First zone — platforms, enemy spawns, save point, item drops, NPC |
+| `data/zones/zone_01.json` | First zone — platforms, enemy spawns, save points, item drops, NPC, building |
+| `data/zones/zone_01_interior.json` | Interior zone for the Abandoned Cabin — entered via building door |
 
 ## assets/
 | Folder | Purpose |

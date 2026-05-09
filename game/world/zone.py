@@ -35,14 +35,62 @@ class SavePoint:
 class ZoneExit:
     """A trigger rect that transports the player to another zone when touched."""
 
-    def __init__(self, x, y, w, h, target_zone):
-        self.rect        = pygame.Rect(x, y, w, h)
-        self.target_zone = target_zone
+    def __init__(self, x, y, w, h, target_zone, spawn_override=None):
+        self.rect            = pygame.Rect(x, y, w, h)
+        self.target_zone     = target_zone
+        self.spawn_override  = tuple(spawn_override) if spawn_override else None
+        self.was_overlapping = False   # rising-edge guard prevents repeat triggers
 
     def draw(self, screen, camera):
         r = camera.apply_tuple(self.rect)
         pygame.draw.rect(screen, EXIT_COLOR,        r)
         pygame.draw.rect(screen, EXIT_BORDER_COLOR, r, 2)
+
+
+class Building:
+    """
+    An interactable building placed in a zone.
+    Press E near the door to enter the interior zone.
+    Does NOT own: transition logic (engine._enter_building handles that).
+    """
+
+    _BODY_COLOR   = (100, 80,  60)
+    _BODY_BORDER  = ( 70, 55,  40)
+    _DOOR_COLOR   = ( 55, 35,  18)
+    _DOOR_BORDER  = ( 90, 65,  30)
+
+    def __init__(self, x, y, w, h, door_x, door_y, door_w, door_h, target_zone, label=""):
+        self.rect          = pygame.Rect(x, y, w, h)
+        self.door_rect     = pygame.Rect(door_x, door_y, door_w, door_h)
+        self.target_zone   = target_zone
+        self.label         = label
+
+        # Wider trigger rect for comfortable E-key detection
+        self.interact_rect = pygame.Rect(door_x - 30, door_y, door_w + 60, door_h)
+
+        # Prompt surfaces — created once at init, never in draw()
+        self._prompt_font   = pygame.font.SysFont(None, 18)
+        self._prompt_shadow = self._prompt_font.render("[E] Enter", True, (0, 0, 0))
+        self._prompt_surf   = self._prompt_font.render("[E] Enter", True, (255, 255, 255))
+
+    def draw(self, screen, camera, player_rect):
+        # Building body
+        r = camera.apply_tuple(self.rect)
+        pygame.draw.rect(screen, self._BODY_COLOR,  r)
+        pygame.draw.rect(screen, self._BODY_BORDER, r, 2)
+
+        # Door
+        dr = camera.apply_tuple(self.door_rect)
+        pygame.draw.rect(screen, self._DOOR_COLOR,  dr)
+        pygame.draw.rect(screen, self._DOOR_BORDER, dr, 1)
+
+        # Overhead prompt when player is near the door
+        if self.interact_rect.colliderect(player_rect):
+            pr = camera.apply(self.door_rect)
+            px = pr.centerx - self._prompt_surf.get_width()  // 2
+            py = pr.top     - self._prompt_surf.get_height() - 5
+            screen.blit(self._prompt_shadow, (px + 1, py + 1))
+            screen.blit(self._prompt_surf,   (px,     py))
 
 
 class Zone:
@@ -61,7 +109,8 @@ class Zone:
         self.item_drops  = []
         self.npcs        = []
         self.exits       = []
-        self.spawn       = (200, 580)
+        self.buildings   = []
+        self.spawn       = (0, 0)
         self.bg_color    = BG_COLOR
         self.music       = None
 
@@ -103,6 +152,21 @@ class Zone:
             self.npcs.append(NPC(n["x"], n["y"], npc_def, lines))
 
         for ex in data.get("exits", []):
-            self.exits.append(
-                ZoneExit(ex["x"], ex["y"], ex["w"], ex["h"], ex["target_zone"])
-            )
+            self.exits.append(ZoneExit(
+                ex["x"], ex["y"], ex["w"], ex["h"], ex["target_zone"],
+                spawn_override=ex.get("spawn_override"),
+            ))
+
+        for b in data.get("buildings", []):
+            bx, by, bw, bh = b["x"], b["y"], b["w"], b["h"]
+            # Door defaults: centered horizontally at the building base
+            door_w = b.get("door_w", 40)
+            door_h = b.get("door_h", 64)
+            door_x = b.get("door_x", bx + (bw - door_w) // 2)
+            door_y = b.get("door_y", by + bh - door_h)
+            self.buildings.append(Building(
+                bx, by, bw, bh,
+                door_x, door_y, door_w, door_h,
+                b["target_zone"],
+                b.get("label", ""),
+            ))

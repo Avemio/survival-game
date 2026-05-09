@@ -17,7 +17,7 @@ from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
                                    ARROW_SPEED, ARROW_DAMAGE, ARROW_WIDTH, ARROW_HEIGHT,
                                    WIND_MAX, WIND_CHANGE_RATE, WIND_TARGET_MIN, WIND_TARGET_MAX,
                                    AIM_PREVIEW_STEPS, AIM_PREVIEW_STEP_T, AIM_DOT_COLOR,
-                                   ARROW_GRAVITY)
+                                   ARROW_GRAVITY, HITSTOP_DURATION)
 from game.core.camera        import Camera
 from game.entities.player    import Player
 from game.entities.item_drop import ItemDrop
@@ -49,6 +49,18 @@ class _Particle:
         self.gravity  = gravity
 
 
+class _DamageNumber:
+    """Floating damage number — drifts upward for 0.75 s then expires."""
+    __slots__ = ('x', 'y', 'surf', 'life', 'max_life')
+
+    def __init__(self, x, y, surf):
+        self.x        = float(x)
+        self.y        = float(y)
+        self.surf     = surf
+        self.life     = 0.75
+        self.max_life = 0.75
+
+
 class Engine:
     def __init__(self):
         pygame.init()
@@ -62,12 +74,6 @@ class Engine:
         zone_id   = save_data.get("zone", "zone_01") if save_data else "zone_01"
 
         self.world       = World(zone_id)
-        self.platforms   = self.world.platforms
-        self.enemies     = self.world.enemies
-        self.save_points = self.world.save_points
-        self.item_drops  = self.world.item_drops
-        self.npcs        = self.world.npcs
-        self.exits       = self.world.exits
 
         # Per-zone drop log: {zone_id: set of int indices already collected}
         self.collected_zone_drops = {}
@@ -79,9 +85,6 @@ class Engine:
             player_data = save_data.get("player", {})
             px = player_data.get("x", self.world.spawn[0])
             py = player_data.get("y", self.world.spawn[1])
-            self.player.rect.topleft = (px, py)
-            self.player.pos.x        = px
-            self.player.pos.y        = py
             self.player.health = player_data.get("health", self.player.max_health)
             self.player.mana   = float(player_data.get("mana", self.player.max_mana))
 
@@ -90,8 +93,8 @@ class Engine:
                 self.player.inventory.load_slots(inv_data)
 
             ab_slots = player_data.get("ability_slots")
-            if ab_slots and len(ab_slots) == 2:
-                self.player.ability_slots = list(ab_slots)
+            if ab_slots and len(ab_slots) >= 2:
+                self.player.ability_slots = list(ab_slots[:2])
 
             raw = save_data.get("collected_zone_drops", {})
             if isinstance(raw, list):
@@ -99,27 +102,17 @@ class Engine:
                 self.collected_zone_drops = {zone_id: set(raw)}
             else:
                 self.collected_zone_drops = {k: set(v) for k, v in raw.items()}
+        else:
+            px, py = self.world.spawn
 
-        # Remove zone drops the player has already collected in this zone
-        already = self.collected_zone_drops.get(zone_id, set())
-        self.item_drops[:] = [
-            d for d in self.item_drops
-            if d.zone_drop_index not in already
-        ]
-
-        self.camera        = Camera()
-        self.hud           = HUD(self.player)
+        self.camera           = Camera()
+        self.ability_system   = AbilitySystem()
+        self.hud              = HUD(self.player, self.ability_system)
         self.crafting         = CraftingSystem()
         self.crafting_menu    = CraftingMenu(self.player, self.crafting)
         self.dialogue_box     = DialogueBox()
         self.pause_menu       = PauseMenu()
         self.inventory_screen = InventoryScreen(self.player)
-        self.ability_system   = AbilitySystem()
-
-        # Pre-warm save point overlap state — prevents a flash trigger if the
-        # player spawns directly on top of a save point (e.g. after loading a save)
-        for sp in self.save_points:
-            sp.was_overlapping = sp.rect.colliderect(self.player.rect)
 
         # Death overlay — all surfaces built once at init (never inside draw)
         self.death_timer    = 0.0
@@ -127,13 +120,21 @@ class Engine:
         self._death_overlay.fill((120, 0, 0, 180))
         self._death_font    = pygame.font.SysFont(None, 96)
         self._death_text    = self._death_font.render("YOU DIED", True, DEATH_TEXT_COLOR)
+        self._dmg_font      = pygame.font.SysFont(None, 20)
 
-        # Projectiles and particles — must exist before _on_zone_loaded() is called
+        # Projectiles, particles, damage numbers, special attacks
         self.projectiles    = []
         self.particles      = []
-        self.active_attacks = []   # WaveAttack, AreaAttack, AuraAttack instances
+        self.damage_numbers = []
+        self.active_attacks = []
 
-        self._on_zone_loaded()
+        # Hitstop — brief physics pause when landing a hit
+        self._hitstop_timer = 0.0
+
+        # Zone list references and setup
+        self._setup_zone()
+        self.player.reset_to(px, py)
+        self._warm_save_points()
 
         # Wind — drifts slowly toward a random target strength
         self.wind          = 0.0
@@ -161,7 +162,11 @@ class Engine:
 
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_x and self.player.aiming:
-                    self._fire_arrow()
+                    # Only fire if no menu/overlay is open and the world is running
+                    if not (self.pause_menu.open or self.crafting_menu.open
+                            or self.dialogue_box.open or self.inventory_screen.open
+                            or self.death_timer > 0):
+                        self._fire_arrow()
                     self.player.aiming    = False
                     self.player.aim_angle = 0.0
 
@@ -204,10 +209,16 @@ class Engine:
                     if self.dialogue_box.open:
                         self.dialogue_box.advance()
                     elif not self.crafting_menu.open:
+                        # Check NPCs first, then buildings
                         for npc in self.npcs:
                             if npc.interact_rect.colliderect(self.player.rect):
                                 self.dialogue_box.start(npc.name, npc.dialogue_lines)
                                 break
+                        else:
+                            for building in self.buildings:
+                                if building.interact_rect.colliderect(self.player.rect):
+                                    self._enter_building(building)
+                                    break
 
                 elif event.key == pygame.K_f:
                     if not self.crafting_menu.open and not self.dialogue_box.open:
@@ -246,6 +257,23 @@ class Engine:
 
         self._update_wind(dt)
         self.player.update(dt, self.platforms)
+
+        # Check death BEFORE zone exits (prevents player entering new zone at 0 HP)
+        if self.player.health <= 0:
+            self.death_timer = DEATH_OVERLAY_DURATION
+            return
+
+        # Landing shake: player just hit the ground at high speed
+        if self.player.on_ground and self.player._landing_velocity > 500:
+            intensity = min(4, int(self.player._landing_velocity / 350))
+            self.camera.shake(intensity=intensity, duration=0.08)
+
+        # Hitstop: brief physics freeze after landing a hit — camera still updates
+        if self._hitstop_timer > 0:
+            self._hitstop_timer -= dt
+            self.camera.update(self.player.rect, dt)
+            return
+
         self._update_enemies(dt)
         self._update_combat(dt)
         self._update_enemy_attacks(dt)
@@ -254,12 +282,10 @@ class Engine:
         self._update_save_points(dt)
         self._update_zone_exits()
         self._update_particles(dt)
+        self._update_damage_numbers(dt)
         self._update_active_attacks(dt)
         self._update_wind_streaks(dt)
         self.camera.update(self.player.rect, dt)
-
-        if self.player.health <= 0:
-            self.death_timer = DEATH_OVERLAY_DURATION
 
     def _update_enemies(self, dt):
         living = []
@@ -323,6 +349,10 @@ class Engine:
                 _assets().play("player_hit")
                 self.camera.shake(intensity=3, duration=0.12)
                 self._spawn_hit_particles(self.player.rect.center, PLAYER_COLOR, 5)
+                self._spawn_damage_number(
+                    self.player.rect.centerx, self.player.rect.top - 4,
+                    hitbox.damage, color=(255, 80, 80)
+                )
             if hitbox.expired:
                 enemy.active_hitbox = None
 
@@ -346,6 +376,8 @@ class Engine:
                     apply_status(enemy, hitbox.status_def)
                 _assets().play("enemy_hit")
                 self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 6)
+                self._spawn_damage_number(enemy.rect.centerx, enemy.rect.top - 4, hitbox.damage)
+                self._hitstop_timer = HITSTOP_DURATION
         if hitbox.expired:
             self.player.active_hitbox = None
 
@@ -362,52 +394,63 @@ class Engine:
 
     def _update_zone_exits(self):
         for exit_ in self.exits:
-            if exit_.rect.colliderect(self.player.rect):
-                self._transition_zone(exit_.target_zone)
+            overlapping = exit_.rect.colliderect(self.player.rect)
+            if overlapping and not exit_.was_overlapping:
+                self._transition_zone(exit_.target_zone, exit_.spawn_override)
                 return   # stop — lists just changed
+            exit_.was_overlapping = overlapping
 
-    def _transition_zone(self, target_zone_id):
-        """Save, swap zones, re-point all engine list references, teleport player."""
-        # Auto-save before leaving
-        save_game(self.player, self.world.zone_id, self.collected_zone_drops)
-
-        # Load the new zone
-        self.world.transition_to(target_zone_id)
-
-        # Re-point all engine references — world's lists are brand new after transition
+    def _setup_zone(self):
+        """Re-point all engine list references after a zone load. Call after world.transition_to()."""
+        zone_id          = self.world.zone_id
         self.platforms   = self.world.platforms
         self.enemies     = self.world.enemies
         self.save_points = self.world.save_points
         self.npcs        = self.world.npcs
         self.exits       = self.world.exits
         self.item_drops  = self.world.item_drops
+        self.buildings   = self.world.buildings
 
-        # Filter out zone drops already collected in the target zone
-        already = self.collected_zone_drops.get(target_zone_id, set())
-        self.item_drops[:] = [
-            d for d in self.item_drops
-            if d.zone_drop_index not in already
-        ]
+        # Filter already-collected drops for this zone
+        already = self.collected_zone_drops.get(zone_id, set())
+        self.item_drops[:] = [d for d in self.item_drops if d.zone_drop_index not in already]
 
-        # Teleport player to the new zone's spawn point
-        sx, sy = self.world.spawn
-        self.player.rect.topleft  = (sx, sy)
-        self.player.pos.x         = sx
-        self.player.pos.y         = sy
-        self.player.velocity.x    = 0
-        self.player.velocity.y    = 0
-        self.player.active_hitbox = None   # cancel any in-flight swing
-        self.player.aiming        = False
+        # Reset zone exit overlap state (rising-edge guard)
+        for exit_ in self.exits:
+            exit_.was_overlapping = False
+
+        # Clear all in-flight objects
         self.projectiles.clear()
         self.active_attacks.clear()
         self.particles.clear()
+        self.damage_numbers.clear()
 
-        # Pre-warm save point overlap so touching the spawn save point doesn't flash
+        self._on_zone_loaded()
+
+    def _warm_save_points(self):
+        """Pre-warm save point overlap flags after player is positioned."""
         for sp in self.save_points:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
 
+    def _transition_zone(self, target_zone_id, spawn_override=None):
+        """Save, swap zones, re-point engine references, teleport player to spawn."""
+        save_game(self.player, self.world.zone_id, self.collected_zone_drops)
+        self.world.transition_to(target_zone_id)
+        self._setup_zone()
+        sx, sy = spawn_override if spawn_override else self.world.spawn
+        self.player.reset_to(sx, sy)
+        self._warm_save_points()
         _assets().play("zone_transition")
-        self._on_zone_loaded()
+
+    def _enter_building(self, building):
+        """Transition into a building's interior zone (triggered by E key at door)."""
+        save_game(self.player, self.world.zone_id, self.collected_zone_drops)
+        self.world.transition_to(building.target_zone)
+        self._setup_zone()
+        sx, sy = self.world.spawn
+        self.player.reset_to(sx, sy)
+        self._warm_save_points()
+        _assets().play("zone_transition")
 
     def _fire_ability(self, slot_idx: int):
         """Fire the ability assigned to slot 0 (Q) or 1 (R)."""
@@ -474,6 +517,16 @@ class Engine:
                 random.randint(2, 3),
                 gravity=420.0,
             ))
+
+    def _spawn_damage_number(self, x, y, value, color=(255, 240, 80)):
+        surf = self._dmg_font.render(str(int(value)), True, color)
+        self.damage_numbers.append(_DamageNumber(x - surf.get_width() // 2, y, surf))
+
+    def _update_damage_numbers(self, dt):
+        for dn in self.damage_numbers:
+            dn.y  -= 45.0 * dt   # float upward
+            dn.life -= dt
+        self.damage_numbers[:] = [d for d in self.damage_numbers if d.life > 0]
 
     def _spawn_death_particles(self, pos, color, count=10):
         for _ in range(count):
@@ -543,8 +596,10 @@ class Engine:
         elif use == "equip_ability":
             ability_id = item_def.get("ability_id")
             if ability_id:
-                # Assign to first empty ability slot, or slot 0 if both full
-                idx = 0 if self.player.ability_slots[0] is None else 1
+                # First empty slot; if both full, overwrite slot 0
+                idx = next(
+                    (i for i, s in enumerate(self.player.ability_slots) if s is None), 0
+                )
                 self.player.ability_slots[idx] = ability_id
                 self.player.inventory.remove(slot_idx, 1)
                 _assets().play("ui_confirm")
@@ -564,8 +619,6 @@ class Engine:
     def _respawn(self):
         """Reload from save file and restore the world to its saved state."""
         self.death_timer = 0.0
-
-        # Close any open overlays
         self.crafting_menu.close()
         self.dialogue_box.close()
         self.pause_menu.close()
@@ -574,16 +627,9 @@ class Engine:
         save_data = load_game()
         zone_id   = save_data.get("zone", "zone_01") if save_data else self.world.zone_id
 
-        # Reload the zone so enemies and drops are fresh
         self.world.transition_to(zone_id)
-        self.platforms   = self.world.platforms
-        self.enemies     = self.world.enemies
-        self.save_points = self.world.save_points
-        self.npcs        = self.world.npcs
-        self.exits       = self.world.exits
-        self.item_drops  = self.world.item_drops
+        self._setup_zone()
 
-        # Restore player state from save, or reset to spawn if no save exists
         if save_data:
             player_data = save_data.get("player", {})
             px = player_data.get("x", self.world.spawn[0])
@@ -593,36 +639,23 @@ class Engine:
             inv_data = player_data.get("inventory")
             if inv_data:
                 self.player.inventory.load_slots(inv_data)
+            ab_slots = player_data.get("ability_slots")
+            if ab_slots and len(ab_slots) >= 2:
+                self.player.ability_slots = list(ab_slots[:2])
             raw = save_data.get("collected_zone_drops", {})
             if isinstance(raw, list):
                 self.collected_zone_drops = {zone_id: set(raw)}
             else:
                 self.collected_zone_drops = {k: set(v) for k, v in raw.items()}
+            # Re-filter drops now that we have the authoritative collection data
+            already = self.collected_zone_drops.get(zone_id, set())
+            self.item_drops[:] = [d for d in self.item_drops if d.zone_drop_index not in already]
         else:
             px, py = self.world.spawn
             self.player.health = self.player.max_health
 
-        self.player.rect.topleft  = (px, py)
-        self.player.pos.x         = px
-        self.player.pos.y         = py
-        self.player.velocity.x    = 0
-        self.player.velocity.y    = 0
-        self.player.active_hitbox = None
-        self.player.aiming        = False
-        self.projectiles.clear()
-        self.active_attacks.clear()
-        self.particles.clear()
-
-        # Filter already-collected zone drops
-        already = self.collected_zone_drops.get(zone_id, set())
-        self.item_drops[:] = [
-            d for d in self.item_drops if d.zone_drop_index not in already
-        ]
-
-        # Pre-warm save point overlap so respawn location doesn't flash
-        for sp in self.save_points:
-            sp.was_overlapping = sp.rect.colliderect(self.player.rect)
-
+        self.player.reset_to(px, py)
+        self._warm_save_points()
         self.camera.update(self.player.rect, 0.0)
 
     def _draw_aim_indicator(self):
@@ -646,11 +679,9 @@ class Engine:
             if not (0 <= sx <= SCREEN_WIDTH and 0 <= sy <= SCREEN_HEIGHT):
                 break   # dot left the screen — stop drawing
 
-            # Dots shrink and fade as they get further from the player
+            # Dots shrink as they get further from the player
             radius = max(1, 3 - i // 7)
-            alpha  = max(40, 220 - i * 10)
-            color  = (AIM_DOT_COLOR[0], AIM_DOT_COLOR[1], AIM_DOT_COLOR[2])
-            pygame.draw.circle(self.screen, color, (sx, sy), radius)
+            pygame.draw.circle(self.screen, AIM_DOT_COLOR, (sx, sy), radius)
 
     def draw(self):
         self.screen.fill(self.world.bg_color)
@@ -669,6 +700,10 @@ class Engine:
         # Draw platforms
         for p in self.platforms:
             pygame.draw.rect(self.screen, PLATFORM_COLOR, self.camera.apply_tuple(p))
+
+        # Draw buildings (behind NPCs/enemies)
+        for building in self.buildings:
+            building.draw(self.screen, self.camera, self.player.rect)
 
         # Draw zone exits
         for exit_ in self.exits:
@@ -704,6 +739,14 @@ class Engine:
         # Draw special attacks (wave, area, aura)
         for attack in self.active_attacks:
             attack.draw(self.screen, self.camera)
+
+        # Draw damage numbers (world-space, float upward)
+        for dn in self.damage_numbers:
+            sx, sy = self.camera.world_to_screen(dn.x, dn.y)
+            if 0 <= sx <= SCREEN_WIDTH and 0 <= sy <= SCREEN_HEIGHT:
+                alpha = int(255 * dn.life / dn.max_life)
+                dn.surf.set_alpha(alpha)
+                self.screen.blit(dn.surf, (sx, int(sy)))
 
         # Draw particles (world-space, fading color + shrinking radius)
         for p in self.particles:

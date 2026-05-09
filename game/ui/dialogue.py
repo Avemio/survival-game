@@ -50,6 +50,16 @@ class DialogueBox:
         # Width available for body text after internal padding
         self._text_w    = self._panel_w - _PAD_X * 2
 
+        # Pre-rendered surfaces rebuilt by _rebuild_wrap — never rendered in draw()
+        self._name_surf     = self._font_name.render("", True, DIALOGUE_NAME_COLOR)
+        self._body_surfs: list = []
+        self._counter_surf  = self._font_hint.render("", True, DIALOGUE_HINT_COLOR)
+        self._current_hint  = None
+
+        # Both possible hint strings pre-rendered at init
+        self._hint_close = self._font_hint.render("[ E ] Close",    True, DIALOGUE_HINT_COLOR)
+        self._hint_cont  = self._font_hint.render("[ E ] Continue", True, DIALOGUE_HINT_COLOR)
+
     # ------------------------------------------------------------------
     # State
     # ------------------------------------------------------------------
@@ -93,9 +103,8 @@ class DialogueBox:
         pygame.draw.rect(screen, DIALOGUE_PANEL_BG,     (x, y, w, h), border_radius=6)
         pygame.draw.rect(screen, DIALOGUE_PANEL_BORDER, (x, y, w, h), 2, border_radius=6)
 
-        # Speaker name
-        name_surf = self._font_name.render(self._speaker, True, DIALOGUE_NAME_COLOR)
-        screen.blit(name_surf, (x + _PAD_X, y + _PAD_Y))
+        # Speaker name (pre-rendered in _rebuild_wrap)
+        screen.blit(self._name_surf, (x + _PAD_X, y + _PAD_Y))
 
         # Divider under name
         div_y = y + _PAD_Y + _NAME_H
@@ -103,35 +112,47 @@ class DialogueBox:
                          (x + _PAD_X, div_y),
                          (x + w - _PAD_X, div_y))
 
-        # Body text — pre-wrapped lines
+        # Body text (pre-rendered surfaces, just blit)
         text_y = div_y + _NAME_GAP
-        for line in self._wrapped:
-            surf = self._font_text.render(line, True, DIALOGUE_TEXT_COLOR)
+        for surf in self._body_surfs:
             screen.blit(surf, (x + _PAD_X, text_y))
             text_y += surf.get_height() + 3
 
-        # Hint — "▼ E" in the bottom-right
-        line_num   = self._current + 1
-        total      = len(self._raw_lines)
-        label      = "[ E ] Close" if line_num == total else "[ E ] Continue"
-        hint_surf  = self._font_hint.render(label, True, DIALOGUE_HINT_COLOR)
-        screen.blit(hint_surf, (
-            x + w - hint_surf.get_width()  - _PAD_X,
-            y + h - hint_surf.get_height() - _PAD_Y
-        ))
+        # Hint — pre-rendered, selected in _rebuild_wrap
+        if self._current_hint:
+            screen.blit(self._current_hint, (
+                x + w - self._current_hint.get_width()  - _PAD_X,
+                y + h - self._current_hint.get_height() - _PAD_Y,
+            ))
 
-        # Line counter — bottom-left
-        counter_surf = self._font_hint.render(f"{line_num} / {total}", True, DIALOGUE_HINT_COLOR)
-        screen.blit(counter_surf, (x + _PAD_X, y + h - counter_surf.get_height() - _PAD_Y))
+        # Line counter (pre-rendered in _rebuild_wrap)
+        screen.blit(self._counter_surf,
+                    (x + _PAD_X, y + h - self._counter_surf.get_height() - _PAD_Y))
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
     def _rebuild_wrap(self):
-        """Word-wrap the current raw line to fit inside the text column."""
-        text = self._raw_lines[self._current]
+        """Pre-render all surfaces for the current dialogue line."""
+        text          = self._raw_lines[self._current]
         self._wrapped = self._wrap_text(text, self._font_text, self._text_w)
+
+        # Body surfaces
+        self._body_surfs = [
+            self._font_text.render(line, True, DIALOGUE_TEXT_COLOR)
+            for line in self._wrapped
+        ]
+        # Speaker name
+        self._name_surf = self._font_name.render(self._speaker, True, DIALOGUE_NAME_COLOR)
+        # Counter
+        line_num = self._current + 1
+        total    = len(self._raw_lines)
+        self._counter_surf = self._font_hint.render(
+            f"{line_num} / {total}", True, DIALOGUE_HINT_COLOR
+        )
+        # Hint (choose from the two pre-rendered variants)
+        self._current_hint = self._hint_close if line_num == total else self._hint_cont
 
     @staticmethod
     def _wrap_text(text, font, max_width):

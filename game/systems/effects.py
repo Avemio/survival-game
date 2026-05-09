@@ -68,11 +68,13 @@ def tick_all(entity, dt: float) -> None:
     entity.stunned     = False
     entity.slow_factor = 1.0
 
-    entity.status_effects = [e for e in entity.status_effects if e.active]
+    # Tick first so the last frame of each effect is fully applied
     for effect in entity.status_effects:
         effect.tick(dt, entity)
+    # Then remove expired effects in-place (keeps the same list object)
+    entity.status_effects[:] = [e for e in entity.status_effects if e.active]
 
-    # Derive slow_factor from any active slow/freeze effects
+    # Derive slow_factor from still-active effects
     for effect in entity.status_effects:
         if effect.type == "slow":
             entity.slow_factor = min(entity.slow_factor, effect.slow_factor)

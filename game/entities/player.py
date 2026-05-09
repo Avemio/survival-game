@@ -19,6 +19,9 @@ from game.settings import (
     ARROW_ANGLE_MAX, ARROW_ANGLE_SPEED,
     STATUS_COLORS,
 )
+
+_COYOTE_TIME      = 0.10   # seconds of coyote grace after walking off a ledge
+_JUMP_BUFFER_TIME = 0.10   # seconds a jump input is buffered before landing
 from game.systems.combat    import AttackHitbox
 from game.systems.inventory import Inventory
 from game.systems.assets    import get as _assets
@@ -41,6 +44,9 @@ class Player:
         self.on_ground  = False
         self.jump_held  = False
         self.jump_time  = 0.0
+        self._coyote_timer     = 0.0   # grace window after leaving a ledge
+        self._jump_buffer      = 0.0   # pending jump input waiting for ground
+        self._landing_velocity = 0.0   # fall speed at moment of landing (for shake)
 
         # Health
         self.max_health = PLAYER_MAX_HEALTH
@@ -54,6 +60,7 @@ class Player:
         self.facing          = 1
         self.attack_cooldown = 0.0
         self.active_hitbox   = None
+        self.hit_flash       = 0.0   # countdown; >0 = flash white
 
         # Status effects
         self.status_effects: list = []
@@ -124,19 +131,23 @@ class Player:
             if keys[pygame.K_DOWN]:
                 self.aim_angle = max(-ARROW_ANGLE_MAX, self.aim_angle - ARROW_ANGLE_SPEED * dt)
 
-        # Jump
+        # Jump (coyote time: also allow jump within grace window after leaving a ledge)
         jump_key = keys[pygame.K_SPACE] or keys[pygame.K_w] or (
             keys[pygame.K_UP] and not self.aiming
         )
+        can_jump = (self.on_ground or self._coyote_timer > 0) and not self.jump_held
         if jump_key:
-            if self.on_ground and not self.jump_held:
-                self.velocity.y = -JUMP_FORCE
-                self.on_ground  = False
-                self.jump_held  = True
-                self.jump_time  = 0.0
+            if can_jump:
+                self.velocity.y    = -JUMP_FORCE
+                self.on_ground     = False
+                self.jump_held     = True
+                self.jump_time     = 0.0
+                self._coyote_timer = 0.0   # consume coyote window
             elif self.jump_held and self.jump_time < MAX_JUMP_TIME and self.velocity.y < 0:
                 self.velocity.y -= JUMP_HOLD_FORCE * dt
                 self.jump_time  += dt
+            elif not self.on_ground and not self.jump_held:
+                self._jump_buffer = _JUMP_BUFFER_TIME   # buffer for the next landing
         else:
             self.jump_held = False
 
@@ -160,16 +171,27 @@ class Player:
                 self.pos.x = self.rect.x
 
     def resolve_y(self, platforms):
-        self.on_ground = False
+        self.on_ground         = False
+        self._landing_velocity = 0.0
         for p in platforms:
             if self.rect.colliderect(p):
                 if self.velocity.y > 0:
+                    self._landing_velocity = self.velocity.y  # capture before zeroing
                     self.rect.bottom = p.top
                     self.on_ground   = True
                     self.jump_held   = False
+                    # Jump buffer: trigger jump immediately on landing if input was queued
+                    if self._jump_buffer > 0:
+                        self._jump_buffer = 0.0
+                        self.velocity.y   = -JUMP_FORCE
+                        self.on_ground    = False
+                        self.jump_held    = True
+                        self.jump_time    = 0.0
+                    else:
+                        self.velocity.y = 0
                 elif self.velocity.y < 0:
-                    self.rect.top = p.bottom
-                self.velocity.y = 0
+                    self.rect.top   = p.bottom
+                    self.velocity.y = 0
                 self.pos.y = self.rect.y
 
     # ------------------------------------------------------------------
@@ -183,13 +205,20 @@ class Player:
         # Tick cooldowns
         if self.attack_cooldown > 0:
             self.attack_cooldown -= dt
-        for i in range(len(self.ability_cooldowns)):
-            if self.ability_cooldowns[i] > 0:
+        for i, cd in enumerate(self.ability_cooldowns):
+            if cd > 0:
                 self.ability_cooldowns[i] -= dt
 
         # Mana regen
         if self.mana < self.max_mana:
             self.mana = min(self.max_mana, self.mana + MANA_REGEN_RATE * dt)
+
+        # Tick flash / input timers
+        if self.hit_flash      > 0: self.hit_flash      -= dt
+        if self._coyote_timer  > 0: self._coyote_timer  -= dt
+        if self._jump_buffer   > 0: self._jump_buffer   -= dt
+
+        was_on_ground = self.on_ground
 
         self.handle_input(dt)
         self.apply_gravity(dt)
@@ -202,12 +231,30 @@ class Player:
         self.rect.y  = int(self.pos.y)
         self.resolve_y(platforms)
 
+        # Start coyote timer when walking off a ledge (not from a jump)
+        if was_on_ground and not self.on_ground and self.velocity.y > 0:
+            self._coyote_timer = _COYOTE_TIME
+
     # ------------------------------------------------------------------
     # Combat helpers
     # ------------------------------------------------------------------
 
     def take_damage(self, amount):
-        self.health = max(0, self.health - amount)
+        self.health    = max(0, self.health - amount)
+        self.hit_flash = 0.12   # flash white on taking any damage
+
+    def reset_to(self, x, y):
+        """Teleport player to (x, y) and zero out all motion state."""
+        self.rect.topleft      = (int(x), int(y))
+        self.pos.x             = float(x)
+        self.pos.y             = float(y)
+        self.velocity.x        = 0.0
+        self.velocity.y        = 0.0
+        self.active_hitbox     = None
+        self.aiming            = False
+        self._coyote_timer     = 0.0
+        self._jump_buffer      = 0.0
+        self._landing_velocity = 0.0
 
     # ------------------------------------------------------------------
     # Draw
@@ -215,11 +262,13 @@ class Player:
 
     def draw(self, screen, camera):
         r = camera.apply_tuple(self.rect)
-        if self._sprite:
+        if self._sprite and self.hit_flash <= 0:
             screen.blit(self._sprite, (r[0], r[1]))
         else:
-            # Flash status effect color over the player
-            color = PLAYER_COLOR
-            if self.status_effects:
+            if self.hit_flash > 0:
+                color = (255, 255, 255)   # white flash on damage
+            elif self.status_effects:
                 color = STATUS_COLORS.get(self.status_effects[0].type, PLAYER_COLOR)
+            else:
+                color = PLAYER_COLOR
             pygame.draw.rect(screen, color, r)

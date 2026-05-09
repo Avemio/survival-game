@@ -73,8 +73,6 @@ class Projectile:
         tail_x = self.pos.x - math.cos(rad)  * length * 0.5
         tail_y = self.pos.y + math.sin(rad)  * length * 0.5
 
-        cx = int(tip_x  - camera.offset.x + camera._shake_x)
-        cy = int(tip_y  - camera.offset.y + camera._shake_y)
-        tx = int(tail_x - camera.offset.x + camera._shake_x)
-        ty = int(tail_y - camera.offset.y + camera._shake_y)
+        cx, cy = camera.world_to_screen(tip_x,  tip_y)
+        tx, ty = camera.world_to_screen(tail_x, tail_y)
         pygame.draw.line(screen, self._color, (tx, ty), (cx, cy), max(1, self._h))

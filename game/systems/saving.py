@@ -30,10 +30,12 @@ _SAVE_PATH = Path(__file__).parent.parent.parent / "save.json"
 
 def save_game(player, zone_id, collected_zone_drops):
     """
-    Write current game state to disk. Health is saved as max (full heal on save).
+    Write current game state to disk. Health is saved at its current value.
+    (At save points the engine heals to max before calling this; zone transitions save current HP.)
     collected_zone_drops — dict mapping zone_id -> set of collected drop indices.
     """
     data = {
+        "save_version": 1,
         "zone": zone_id,
         "player": {
             "x":             player.rect.x,
@@ -64,6 +66,6 @@ def load_game():
     try:
         with open(_SAVE_PATH) as f:
             return json.load(f)
-    except (json.JSONDecodeError, KeyError, ValueError):
+    except (json.JSONDecodeError, KeyError, ValueError, OSError):
         # Corrupted save — treat as a fresh start rather than crashing
         return None

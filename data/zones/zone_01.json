@@ -32,12 +32,13 @@
     {"type": "basic", "x": 1900, "y": 515},
     {"type": "basic", "x": 2600, "y": 600},
     {"type": "basic", "x": 3070, "y": 425},
-    {"type": "basic", "x": 3620, "y": 600},
-    {"type": "basic", "x": 4450, "y": 515}
+    {"type": "fast",  "x": 3620, "y": 600},
+    {"type": "heavy", "x": 4450, "y": 515}
   ],
   "save_points": [
     {"x": 50,   "y": 596, "w": 60, "h": 64},
-    {"x": 1760, "y": 596, "w": 60, "h": 64}
+    {"x": 1760, "y": 596, "w": 60, "h": 64},
+    {"x": 2900, "y": 596, "w": 60, "h": 64}
   ],
   "item_drops": [
     {"item_id": "stone",              "quantity": 5,  "x": 160,  "y": 640},
@@ -56,5 +57,13 @@
   ],
   "exits": [
     {"x": 4950, "y": 0, "w": 50, "h": 720, "target_zone": "zone_02"}
+  ],
+  "buildings": [
+    {
+      "x": 700, "y": 480, "w": 200, "h": 180,
+      "door_x": 775, "door_y": 596, "door_w": 50, "door_h": 64,
+      "target_zone": "zone_01_interior",
+      "label": "Abandoned Cabin"
+    }
   ]
 }

@@ -146,8 +146,12 @@ MUSIC_VOLUME = 0.5   # music volume (0.0 – 1.0)
 INVENTORY_SLOTS = 32  # total slots; hotbar shows first HOTBAR_SLOTS of these
 
 # Mana / ability system
-PLAYER_MAX_MANA = 100
-MANA_REGEN_RATE = 5.0    # mana per second
+PLAYER_MAX_MANA    = 100
+MANA_REGEN_RATE    = 5.0    # mana per second
+ABILITY_SLOT_COUNT = 2      # number of Q/R ability slots
+
+# Combat feel
+HITSTOP_DURATION = 0.05     # seconds of physics freeze when landing a hit (3 frames @60fps)
 MANA_BAR_H      = 12
 MANA_BAR_BG     = (20,  20,  80)
 MANA_BAR_FG     = (60, 120, 255)

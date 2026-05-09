@@ -163,9 +163,10 @@ class CraftingMenu:
         self._draw_footer(screen)
 
     def _draw_recipes(self, screen, start_y):
-        inv = self.player.inventory
-        y   = start_y
-        x   = self._px + _PADDING
+        inv   = self.player.inventory
+        y     = start_y
+        x     = self._px + _PADDING
+        max_y = self._py + CRAFT_PANEL_H - _FOOTER_H - 8   # don't draw over footer
 
         for idx, (recipe_id, recipe_def) in enumerate(self._recipe_list):
             craftable = self.crafter.can_craft(recipe_id, inv)
@@ -174,6 +175,10 @@ class CraftingMenu:
             # Row height for this recipe: name + one row per ingredient
             n_ings   = len(recipe_def["ingredients"])
             row_h    = _RECIPE_NAME_H + n_ings * _INGREDIENT_H
+
+            # Stop drawing if this row would overflow the panel
+            if y + row_h > max_y:
+                break
 
             # Highlight background for selected row
             if selected:
