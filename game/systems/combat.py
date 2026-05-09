@@ -17,11 +17,12 @@ class AttackHitbox:
         owner   — the entity swinging (Player or Enemy); must have .facing and .rect.
         damage  — hp to deal on hit; defaults to ATTACK_DAMAGE for the player.
         """
-        self.owner      = owner
-        self.facing     = owner.facing
-        self.damage     = damage
-        self.timer      = ATTACK_DURATION
-        self.already_hit = set()          # enemies we've already damaged this swing
+        self.owner           = owner
+        self.facing          = owner.facing
+        self.damage          = damage
+        self.timer           = ATTACK_DURATION
+        self.already_hit     = set()   # enemies we've already damaged this swing
+        self.sound_played    = False   # engine sets True after playing the swing sound
 
         # Build rect — offset forward from owner's center so point-blank targets are hit.
         # Starting from the edge would leave a dead zone when entities fully overlap.

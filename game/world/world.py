@@ -76,3 +76,11 @@ class World:
     @property
     def exits(self):
         return self.zone.exits
+
+    @property
+    def bg_color(self):
+        return self.zone.bg_color
+
+    @property
+    def music(self):
+        return self.zone.music

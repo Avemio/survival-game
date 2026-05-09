@@ -11,6 +11,7 @@ Controls (when open):
 """
 
 import pygame
+from game.systems.assets import get as _assets
 from game.settings import (
     SCREEN_WIDTH, SCREEN_HEIGHT,
     CRAFT_PANEL_W, CRAFT_PANEL_H,
@@ -94,10 +95,12 @@ class CraftingMenu:
         if event.key in (pygame.K_UP, pygame.K_w):
             self._cursor = (self._cursor - 1) % n
             self._feedback_timer = 0.0
+            _assets().play("ui_select")
 
         elif event.key in (pygame.K_DOWN, pygame.K_s):
             self._cursor = (self._cursor + 1) % n
             self._feedback_timer = 0.0
+            _assets().play("ui_select")
 
         elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
             self._try_craft()
@@ -120,9 +123,11 @@ class CraftingMenu:
             name  = recipe_def.get("name", recipe_id)
             self._feedback_text  = f"Crafted {name}  ×{count}!"
             self._feedback_timer = 1.8
+            _assets().play("craft_success")
         else:
             self._feedback_text  = "Not enough materials."
             self._feedback_timer = 1.2
+            _assets().play("craft_fail")
 
     # ------------------------------------------------------------------
     # Draw

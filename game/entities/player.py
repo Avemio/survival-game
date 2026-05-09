@@ -19,6 +19,7 @@ from game.settings import (
 )
 from game.systems.combat    import AttackHitbox
 from game.systems.inventory import Inventory
+from game.systems.assets    import get as _assets
 
 # Module-level constant — avoids recreating this list every handle_input() call
 _HOTBAR_KEYS = [
@@ -54,6 +55,9 @@ class Player:
         # Bow aiming
         self.aiming    = False   # True while X is held
         self.aim_angle = 0.0     # degrees above horizontal (0 = flat, 45 = up-diagonal)
+
+        # Sprite — scaled once at init; None = fall back to colored rect
+        self._sprite = _assets().get_sprite_scaled("player", PLAYER_WIDTH, PLAYER_HEIGHT)
 
     @property
     def hotbar_slot(self):
@@ -187,4 +191,8 @@ class Player:
         self.health = max(0, self.health - amount)
 
     def draw(self, screen, camera):
-        pygame.draw.rect(screen, PLAYER_COLOR, camera.apply_tuple(self.rect))
+        r = camera.apply_tuple(self.rect)
+        if self._sprite:
+            screen.blit(self._sprite, (r[0], r[1]))
+        else:
+            pygame.draw.rect(screen, PLAYER_COLOR, r)

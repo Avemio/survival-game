@@ -7,6 +7,7 @@ Does NOT own: inventory logic (engine calls inventory.add on pickup),
 """
 
 import pygame
+from game.systems.assets import get as _assets
 
 
 class ItemDrop:
@@ -27,11 +28,17 @@ class ItemDrop:
         self.zone_drop_index  = None   # set to an int for zone-defined drops,
                                        # None for enemy drops (don't persist)
 
+        # Sprite — scaled once at init; None = fall back to colored square
+        self._sprite = _assets().get_sprite_scaled(f"item_{item_id}", self.SIZE, self.SIZE)
+
     # ------------------------------------------------------------------
     # Draw
     # ------------------------------------------------------------------
 
     def draw(self, screen, camera):
         r = camera.apply_tuple(self.rect)
-        pygame.draw.rect(screen, self.color,      r)
-        pygame.draw.rect(screen, (255, 255, 255), r, 1)
+        if self._sprite:
+            screen.blit(self._sprite, (r[0], r[1]))
+        else:
+            pygame.draw.rect(screen, self.color,      r)
+            pygame.draw.rect(screen, (255, 255, 255), r, 1)

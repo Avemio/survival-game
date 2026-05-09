@@ -26,6 +26,7 @@ from game.ui.hud             import HUD
 from game.ui.menus           import CraftingMenu
 from game.ui.dialogue        import DialogueBox
 from game.ui.pause_menu      import PauseMenu
+from game.systems.assets     import get as _assets
 from game.systems.saving     import save_game, load_game
 from game.systems.crafting   import CraftingSystem
 from game.entities.projectile import Projectile
@@ -109,6 +110,8 @@ class Engine:
         # player spawns directly on top of a save point (e.g. after loading a save)
         for sp in self.save_points:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
+
+        self._on_zone_loaded()
 
         # Death overlay — all surfaces built once at init (never inside draw)
         self.death_timer    = 0.0
@@ -235,6 +238,7 @@ class Engine:
             else:
                 self._spawn_drops(enemy)
                 self._spawn_death_particles(enemy.rect.center, ENEMY_COLOR, 10)
+                _assets().play("enemy_death")
         self.enemies[:] = living
 
     def _spawn_drops(self, enemy):
@@ -264,6 +268,7 @@ class Engine:
                 leftover = self.player.inventory.add(drop.item_id, drop.quantity)
                 if leftover == 0:
                     drop.alive = False
+                    _assets().play("item_pickup")
                     # Track zone drops so they don't respawn on next load
                     if drop.zone_drop_index is not None:
                         self.collected_zone_drops.setdefault(
@@ -283,6 +288,7 @@ class Engine:
                     and hitbox.rect.colliderect(self.player.rect)):
                 self.player.take_damage(hitbox.damage)
                 hitbox.already_hit.add(self.player)
+                _assets().play("player_hit")
                 self.camera.shake(intensity=3, duration=0.12)
                 self._spawn_hit_particles(self.player.rect.center, PLAYER_COLOR, 5)
             if hitbox.expired:
@@ -292,12 +298,16 @@ class Engine:
         hitbox = self.player.active_hitbox
         if not hitbox:
             return
+        if not hitbox.sound_played:
+            _assets().play("attack_swing")
+            hitbox.sound_played = True
         hitbox.update(dt)
         for enemy in self.enemies:
             if (enemy not in hitbox.already_hit
                     and hitbox.rect.colliderect(enemy.rect)):
                 enemy.take_damage(hitbox.damage)
                 hitbox.already_hit.add(enemy)
+                _assets().play("enemy_hit")
                 self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 6)
         if hitbox.expired:
             self.player.active_hitbox = None
@@ -310,6 +320,7 @@ class Engine:
                 self.player.health = self.player.max_health
                 save_game(self.player, self.world.zone_id, self.collected_zone_drops)
                 sp.flash_timer = sp.FLASH_DURATION
+                _assets().play("save_point")
             sp.was_overlapping = overlapping
 
     def _update_zone_exits(self):
@@ -355,6 +366,14 @@ class Engine:
         # Pre-warm save point overlap so touching the spawn save point doesn't flash
         for sp in self.save_points:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
+
+        _assets().play("zone_transition")
+        self._on_zone_loaded()
+
+    def _on_zone_loaded(self):
+        """Called whenever the active zone changes — starts zone music if defined."""
+        if self.world.music:
+            _assets().play_music(self.world.music)
 
     def _update_wind(self, dt):
         self._wind_timer -= dt
@@ -435,6 +454,7 @@ class Engine:
         if self.player.inventory.count("arrow") <= 0:
             return
         self.player.inventory.consume("arrow", 1)
+        _assets().play("arrow_fire")
 
         angle_rad = math.radians(self.player.aim_angle)
         vx = math.cos(angle_rad) * ARROW_SPEED * self.player.facing
@@ -547,7 +567,7 @@ class Engine:
             pygame.draw.circle(self.screen, color, (sx, sy), radius)
 
     def draw(self):
-        self.screen.fill(BG_COLOR)
+        self.screen.fill(self.world.bg_color)
 
         # Atmospheric wind streaks — drawn first, behind everything
         if abs(self.wind) > 8:

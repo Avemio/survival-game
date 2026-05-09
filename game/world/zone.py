@@ -12,7 +12,7 @@ from pathlib import Path
 from game.entities.enemy     import Enemy
 from game.entities.item_drop import ItemDrop
 from game.entities.npc       import NPC
-from game.settings import SAVE_POINT_COLOR, SAVE_POINT_ACTIVE_COLOR, EXIT_COLOR, EXIT_BORDER_COLOR
+from game.settings import SAVE_POINT_COLOR, SAVE_POINT_ACTIVE_COLOR, EXIT_COLOR, EXIT_BORDER_COLOR, BG_COLOR
 
 
 class SavePoint:
@@ -62,6 +62,8 @@ class Zone:
         self.npcs        = []
         self.exits       = []
         self.spawn       = (200, 580)
+        self.bg_color    = BG_COLOR
+        self.music       = None
 
         self._load(Path(path), enemy_types, item_defs, npc_types, dialogue_data)
 
@@ -69,8 +71,11 @@ class Zone:
         with open(path) as f:
             data = json.load(f)
 
-        self.id    = data.get("id", path.stem)
-        self.spawn = tuple(data.get("spawn") or [200, 580])
+        self.id       = data.get("id", path.stem)
+        self.spawn    = tuple(data.get("spawn") or [200, 580])
+        self.music    = data.get("music")
+        raw_bg        = data.get("bg_color")
+        self.bg_color = tuple(raw_bg) if raw_bg else BG_COLOR
 
         for p in data.get("platforms", []):
             self.platforms.append(

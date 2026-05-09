@@ -27,7 +27,8 @@ from game.settings import (
     ENEMY_PATROL_RADIUS,
     GRAVITY, MAX_FALL_SPEED,
 )
-from game.systems.combat import AttackHitbox
+from game.systems.combat  import AttackHitbox
+from game.systems.assets  import get as _assets
 
 
 class EnemyState(Enum):
@@ -76,6 +77,10 @@ class Enemy:
         self._attack_timer = 0.0   # counts down to 0; 0 = ready to attack
         self._windup_timer = 0.0   # counts down to 0 while winding up
         self.active_hitbox = None  # set during ATTACK; cleared by engine when expired
+
+        # Sprite — scaled once at init; None = fall back to colored rect
+        sprite_name  = stats.get("sprite", "enemy_basic")
+        self._sprite = _assets().get_sprite_scaled(sprite_name, w, h)
 
     # ------------------------------------------------------------------
     # Damage
@@ -216,10 +221,15 @@ class Enemy:
     # ------------------------------------------------------------------
 
     def draw(self, screen, camera):
-        if self.hit_flash > 0:
-            color = ENEMY_HIT_COLOR       # white flash on hit — overrides all
-        elif self.state == EnemyState.ATTACK:
-            color = ENEMY_WINDUP_COLOR    # orange — winding up to swing
+        r = camera.apply_tuple(self.rect)
+        # Sprite used only in the normal state; colored rect handles hit-flash and windup
+        if self._sprite and self.hit_flash <= 0 and self.state != EnemyState.ATTACK:
+            screen.blit(self._sprite, (r[0], r[1]))
         else:
-            color = ENEMY_COLOR           # red — normal
-        pygame.draw.rect(screen, color, camera.apply_tuple(self.rect))
+            if self.hit_flash > 0:
+                color = ENEMY_HIT_COLOR
+            elif self.state == EnemyState.ATTACK:
+                color = ENEMY_WINDUP_COLOR
+            else:
+                color = ENEMY_COLOR
+            pygame.draw.rect(screen, color, r)

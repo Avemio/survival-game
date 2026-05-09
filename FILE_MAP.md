@@ -62,6 +62,11 @@
 ## assets/
 | Folder | Purpose |
 |--------|---------|
-| `assets/sprites/` | All sprite sheets and individual sprites |
-| `assets/sounds/` | Sound effects and music |
+| `assets/sprites/` | Sprites — drop a PNG and it auto-loads (see naming guide in README) |
+| `assets/sounds/` | SFX (.wav/.ogg) and music tracks (.ogg) — auto-loaded by AssetManager |
 | `assets/fonts/` | Font files |
+
+## systems/ (additional)
+| File | Purpose |
+|------|---------|
+| `systems/assets.py` | AssetManager singleton — loads sprites + sounds, plays SFX and music, falls back silently |

@@ -7,6 +7,7 @@ Does NOT own: dialogue rendering (ui/dialogue.py), triggering logic (engine).
 """
 
 import pygame
+from game.systems.assets import get as _assets
 
 
 class NPC:
@@ -23,6 +24,10 @@ class NPC:
         self.name           = npc_def.get("name",  "???")
         self.color          = tuple(npc_def.get("color", [200, 190, 140]))
         self.dialogue_lines = dialogue_lines   # list[str]
+
+        # Sprite — scaled once at init; None = fall back to colored rect
+        sprite_name  = npc_def.get("sprite", f"npc_{self.name.lower()}")
+        self._sprite = _assets().get_sprite_scaled(sprite_name, w, h)
 
         # Font and pre-built surfaces for the "[E] Talk" overhead prompt — created once
         self._prompt_font   = pygame.font.SysFont(None, 18)
@@ -43,7 +48,11 @@ class NPC:
                       the NPC doesn't move so no other player state is needed.
         """
         # Body
-        pygame.draw.rect(screen, self.color, camera.apply_tuple(self.rect))
+        r = camera.apply_tuple(self.rect)
+        if self._sprite:
+            screen.blit(self._sprite, (r[0], r[1]))
+        else:
+            pygame.draw.rect(screen, self.color, r)
 
         # Overhead "[E] Talk" prompt when the player is within interact range
         if self.interact_rect.colliderect(player_rect) and self.dialogue_lines:

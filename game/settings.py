@@ -137,3 +137,29 @@ HUD_HEALTH_BORDER  = (200, 200, 200)  # light grey — bar outline
 HOTBAR_BG          = (40,  40,  50)   # dark — slot background
 HOTBAR_BORDER      = (100, 100, 120)  # grey — slot border
 HOTBAR_SELECTED    = (220, 200, 80)   # yellow — selected slot highlight
+
+# Audio — overridden by config.json
+VOLUME       = 0.8   # sound effect volume (0.0 – 1.0)
+MUSIC_VOLUME = 0.5   # music volume (0.0 – 1.0)
+
+# ------------------------------------------------------------------
+# config.json override — applied last so user settings win
+# ------------------------------------------------------------------
+import json as _json
+from pathlib import Path as _Path
+try:
+    _cfg = _json.loads((_Path(__file__).parent.parent / "config.json").read_text())
+    _res = _cfg.get("resolution")
+    if isinstance(_res, list) and len(_res) == 2:
+        SCREEN_WIDTH  = int(_res[0])
+        SCREEN_HEIGHT = int(_res[1])
+    if "fps" in _cfg:
+        FPS = int(_cfg["fps"])
+    if "volume" in _cfg:
+        VOLUME = float(_cfg["volume"])
+    if "music_volume" in _cfg:
+        MUSIC_VOLUME = float(_cfg["music_volume"])
+    del _cfg, _res
+except Exception:
+    pass
+del _json, _Path
