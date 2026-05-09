@@ -1,6 +1,6 @@
 {
   "id": "zone_01_interior",
-  "spawn": [120, 340],
+  "spawn": [120, 316],
   "bg_color": [18, 14, 10],
   "platforms": [
     {"x": 0,   "y": 380, "w": 600, "h": 20, "label": "floor"},
@@ -22,7 +22,7 @@
   "npcs": [],
   "exits": [
     {
-      "x": 0, "y": 0, "w": 20, "h": 400,
+      "x": 20, "y": 316, "w": 40, "h": 64,
       "target_zone": "zone_01",
       "spawn_override": [800, 596]
     }
