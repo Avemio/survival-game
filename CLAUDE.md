@@ -15,18 +15,25 @@
 
 ---
 
-## Second Brain duties
-Bobby's Obsidian vault is the **primary memory system for this project**.
-Path: `C:\Users\bobby\OneDrive\Documents\Claude Code\Second Brain\`
+## Memory systems
 
-**This is where all persistent memory lives — not the .claude project memory folder.**
+**Two tiers — both matter:**
+
+### `.claude` project memory (auto-loaded, fast)
+Lives at `.claude/projects/.../memory/`. Loaded automatically at session start.
+Use for: quick-access facts, user preferences, confirmed patterns, concise milestone backlog.
+**Update this whenever something important is learned mid-session.**
+
+### Second Brain (manual read, full detail)
+Bobby's Obsidian vault: `C:\Users\bobby\OneDrive\Documents\Claude Code\Second Brain\`
+Use for: full session logs, detailed milestone specs, design decisions, resume talking points.
 
 **Update these files during/after every session:**
-- `Projects/active/Survival Game.md` — milestone table, session log, resume talking points, pending work. Update as milestones complete, not just at the end.
-- `Reviews/YYYY-MM-DD - Survival Game Session.md` — create at the end of any meaningful session (what was built, decisions made, patterns learned)
-- `Knowledge/` — if anything technically interesting is researched or solved, save a note there
+- `Projects/active/Survival Game.md` — milestone table, full session log, pending work detail
+- `Reviews/YYYY-MM-DD - Survival Game Session.md` — create at end of meaningful sessions
+- `Knowledge/` — technically interesting solutions worth saving
 
-**The milestone table and "Smaller Deferred Items" section in `Survival Game.md` are the authoritative backlog.** Check them at the start of every session to know what's queued.
+The `.claude` memory holds the *quick facts*. The Second Brain holds the *full story*.
 
 ---
 
