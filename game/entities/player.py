@@ -20,6 +20,12 @@ from game.settings import (
 from game.systems.combat    import AttackHitbox
 from game.systems.inventory import Inventory
 
+# Module-level constant — avoids recreating this list every handle_input() call
+_HOTBAR_KEYS = [
+    pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4,
+    pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8,
+]
+
 
 class Player:
     def __init__(self, x, y):
@@ -75,15 +81,13 @@ class Player:
             self.facing     =  1
 
         # Hotbar slot selection — number keys 1-8 map to slots 0-7
-        _hotbar_keys = [pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4,
-                        pygame.K_5, pygame.K_6, pygame.K_7, pygame.K_8]
-        for i, key in enumerate(_hotbar_keys):
+        for i, key in enumerate(_HOTBAR_KEYS):
             if keys[key]:
                 self.hotbar_slot = i
                 break
 
-        # Attack — Z key, only when cooldown is done and no hitbox already active
-        if keys[pygame.K_z] and self.attack_cooldown <= 0 and self.active_hitbox is None:
+        # Attack — Z key, only when cooldown is done, not already swinging, and not drawing bow
+        if keys[pygame.K_z] and self.attack_cooldown <= 0 and self.active_hitbox is None and not self.aiming:
             self.attack_cooldown = ATTACK_COOLDOWN
             self.active_hitbox   = AttackHitbox(self)
 

@@ -29,11 +29,9 @@ class NPC:
         self._prompt_shadow = self._prompt_font.render("[E] Talk", True, (0, 0, 0))
         self._prompt_surf   = self._prompt_font.render("[E] Talk", True, (255, 255, 255))
 
-    @property
-    def interact_rect(self):
-        """Rect expanded 40 px on each side — used for prompt display and E-key trigger.
-        Computed fresh each access so it stays accurate if the NPC ever moves."""
-        return self.rect.inflate(80, 0)
+        # Interaction trigger rect: 40 px wider on each side.
+        # NPCs are static, so this never changes — compute once.
+        self.interact_rect  = self.rect.inflate(80, 0)
 
     # ------------------------------------------------------------------
     # Draw

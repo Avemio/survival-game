@@ -39,6 +39,15 @@ class HUD:
         self._hotbar_x = (SCREEN_WIDTH - total_w) // 2
         self._hotbar_y = SCREEN_HEIGHT - HOTBAR_SLOT_SIZE - HOTBAR_Y_OFFSET
 
+        # Pre-rendered static surfaces — static text never changes
+        self._wind_label = self._wind_font.render("WIND", True, (160, 160, 180))
+
+        # Per-slot quantity surface cache: each entry is (quantity, Surface) or None
+        self._qty_cache = [None] * HOTBAR_SLOTS
+
+        # Arrow count cache: (count, Surface) — re-rendered only when count changes
+        self._arrow_cache = (-1, None)
+
     # ------------------------------------------------------------------
     # Draw (called by engine each frame, after all world drawing)
     # ------------------------------------------------------------------
@@ -97,7 +106,11 @@ class HUD:
 
                 # Quantity in bottom-right — only show if > 1
                 if item.quantity > 1:
-                    qty_surf = self._font.render(str(item.quantity), True, WHITE)
+                    cache = self._qty_cache[i]
+                    if cache is None or cache[0] != item.quantity:
+                        surf = self._font.render(str(item.quantity), True, WHITE)
+                        self._qty_cache[i] = (item.quantity, surf)
+                    qty_surf = self._qty_cache[i][1]
                     screen.blit(qty_surf, (
                         slot_x + HOTBAR_SLOT_SIZE - qty_surf.get_width()  - 3,
                         slot_y + HOTBAR_SLOT_SIZE - qty_surf.get_height() - 2
@@ -114,10 +127,9 @@ class HUD:
     def _draw_wind(self, screen, wind):
         x, y = _WIND_HUD_X, _WIND_HUD_Y
 
-        # Label
-        label = self._wind_font.render("WIND", True, (160, 160, 180))
-        screen.blit(label, (x, y))
-        y += label.get_height() + 3
+        # Label — pre-rendered at init
+        screen.blit(self._wind_label, (x, y))
+        y += self._wind_label.get_height() + 3
 
         # Track background
         pygame.draw.rect(screen, (50, 50, 60), (x, y, _WIND_BAR_W, _WIND_BAR_H))
@@ -149,5 +161,7 @@ class HUD:
 
     def _draw_arrow_count(self, screen):
         count = self.player.inventory.count("arrow")
-        surf  = self._wind_font.render(f"Arrows: {count}", True, (220, 200, 120))
-        screen.blit(surf, (_WIND_HUD_X, _WIND_HUD_Y + 28))
+        if count != self._arrow_cache[0]:
+            surf = self._wind_font.render(f"Arrows: {count}", True, (220, 200, 120))
+            self._arrow_cache = (count, surf)
+        screen.blit(self._arrow_cache[1], (_WIND_HUD_X, _WIND_HUD_Y + 28))

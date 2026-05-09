@@ -61,6 +61,11 @@ class CraftingMenu:
         self._overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         self._overlay.fill((0, 0, 0, 140))
 
+        # Pre-rendered static text — these never change
+        self._title_surf  = self._font_title.render("CRAFTING", True, CRAFT_TITLE_COLOR)
+        hint_text         = "↑↓  Navigate      Enter  Craft      C / Esc  Close"
+        self._footer_surf = self._font_foot.render(hint_text, True, CRAFT_FOOTER_COLOR)
+
     # ------------------------------------------------------------------
     # State
     # ------------------------------------------------------------------
@@ -134,10 +139,9 @@ class CraftingMenu:
         pygame.draw.rect(screen, CRAFT_PANEL_BG,    panel_rect, border_radius=6)
         pygame.draw.rect(screen, CRAFT_PANEL_BORDER, panel_rect, 2, border_radius=6)
 
-        # Title
-        title_surf = self._font_title.render("CRAFTING", True, CRAFT_TITLE_COLOR)
-        screen.blit(title_surf, (
-            self._px + (CRAFT_PANEL_W - title_surf.get_width()) // 2,
+        # Title — pre-rendered at init
+        screen.blit(self._title_surf, (
+            self._px + (CRAFT_PANEL_W - self._title_surf.get_width()) // 2,
             self._py + _PADDING
         ))
 
@@ -219,9 +223,7 @@ class CraftingMenu:
                          (self._px + _PADDING, footer_y),
                          (self._px + CRAFT_PANEL_W - _PADDING, footer_y))
 
-        hint = "↑↓  Navigate      Enter  Craft      C / Esc  Close"
-        hint_surf = self._font_foot.render(hint, True, CRAFT_FOOTER_COLOR)
-        screen.blit(hint_surf, (
-            self._px + (CRAFT_PANEL_W - hint_surf.get_width()) // 2,
-            footer_y + (_FOOTER_H - hint_surf.get_height()) // 2
+        screen.blit(self._footer_surf, (
+            self._px + (CRAFT_PANEL_W - self._footer_surf.get_width()) // 2,
+            footer_y + (_FOOTER_H - self._footer_surf.get_height()) // 2
         ))

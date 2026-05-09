@@ -93,11 +93,12 @@ class Engine:
         for sp in self.save_points:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
 
-        # Death overlay — surface + font built once at init (never inside draw)
+        # Death overlay — all surfaces built once at init (never inside draw)
         self.death_timer    = 0.0
         self._death_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         self._death_overlay.fill((120, 0, 0, 180))
         self._death_font    = pygame.font.SysFont(None, 96)
+        self._death_text    = self._death_font.render("YOU DIED", True, DEATH_TEXT_COLOR)
 
         # Projectiles
         self.projectiles = []
@@ -504,9 +505,10 @@ class Engine:
         # Death overlay — drawn last so it covers all UI
         if self.death_timer > 0:
             self.screen.blit(self._death_overlay, (0, 0))
-            text = self._death_font.render("YOU DIED", True, DEATH_TEXT_COLOR)
-            self.screen.blit(text, (SCREEN_WIDTH  // 2 - text.get_width()  // 2,
-                                    SCREEN_HEIGHT // 2 - text.get_height() // 2))
+            self.screen.blit(self._death_text, (
+                SCREEN_WIDTH  // 2 - self._death_text.get_width()  // 2,
+                SCREEN_HEIGHT // 2 - self._death_text.get_height() // 2,
+            ))
 
         pygame.display.flip()
 

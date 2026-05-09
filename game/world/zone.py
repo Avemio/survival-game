@@ -70,7 +70,7 @@ class Zone:
             data = json.load(f)
 
         self.id    = data.get("id", path.stem)
-        self.spawn = tuple(data.get("spawn", [200, 580]))
+        self.spawn = tuple(data.get("spawn") or [200, 580])
 
         for p in data.get("platforms", []):
             self.platforms.append(
