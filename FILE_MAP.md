@@ -47,6 +47,7 @@
 | `ui/hud.py` | HUD overlay — health bar (top-left) and hotbar slots (bottom-center), screen space only |
 | `ui/menus.py` | CraftingMenu overlay — recipe list, ingredient counts, cursor nav, feedback flash |
 | `ui/dialogue.py` | DialogueBox — word-wrapped NPC dialogue panel above hotbar, advances on E |
+| `ui/pause_menu.py` | PauseMenu overlay — controls reference + Resume/Quit; opened by Esc during gameplay |
 
 ## data/
 | File | Purpose |

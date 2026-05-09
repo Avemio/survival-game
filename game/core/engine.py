@@ -24,6 +24,7 @@ from game.world.world        import World
 from game.ui.hud             import HUD
 from game.ui.menus           import CraftingMenu
 from game.ui.dialogue        import DialogueBox
+from game.ui.pause_menu      import PauseMenu
 from game.systems.saving     import save_game, load_game
 from game.systems.crafting   import CraftingSystem
 from game.entities.projectile import Projectile
@@ -87,6 +88,7 @@ class Engine:
         self.crafting      = CraftingSystem()
         self.crafting_menu = CraftingMenu(self.player, self.crafting)
         self.dialogue_box  = DialogueBox()
+        self.pause_menu    = PauseMenu()
 
         # Pre-warm save point overlap state — prevents a flash trigger if the
         # player spawns directly on top of a save point (e.g. after loading a save)
@@ -124,11 +126,18 @@ class Engine:
                 if self.death_timer > 0:
                     continue
 
+                # Pause menu intercepts all keys while open
+                if self.pause_menu.open:
+                    self.pause_menu.handle_event(event)
+                    continue
+
                 if event.key == pygame.K_ESCAPE:
                     if self.crafting_menu.open:
                         self.crafting_menu.close()
+                    elif self.dialogue_box.open:
+                        pass   # E closes dialogue; Esc intentionally does nothing here
                     else:
-                        self.running = False
+                        self.pause_menu.toggle()
 
                 elif event.key == pygame.K_c:
                     if not self.dialogue_box.open:
@@ -138,7 +147,6 @@ class Engine:
                     if self.dialogue_box.open:
                         self.dialogue_box.advance()
                     elif not self.crafting_menu.open:
-                        # Start dialogue if the player is within interact range of an NPC
                         for npc in self.npcs:
                             if npc.interact_rect.colliderect(self.player.rect):
                                 self.dialogue_box.start(npc.name, npc.dialogue_lines)
@@ -167,7 +175,7 @@ class Engine:
             return
 
         # Pause all world simulation while any overlay is open
-        if self.crafting_menu.open or self.dialogue_box.open:
+        if self.pause_menu.open or self.crafting_menu.open or self.dialogue_box.open:
             return
 
         self._update_wind(dt)
@@ -366,6 +374,7 @@ class Engine:
         # Close any open overlays
         self.crafting_menu.close()
         self.dialogue_box.close()
+        self.pause_menu.close()
 
         save_data = load_game()
         zone_id   = save_data.get("zone", "zone_01") if save_data else self.world.zone_id
@@ -501,6 +510,9 @@ class Engine:
 
         # Dialogue box — drawn over everything when open
         self.dialogue_box.draw(self.screen)
+
+        # Pause menu — drawn over dialogue (Esc can't open it while dialogue is active)
+        self.pause_menu.draw(self.screen)
 
         # Death overlay — drawn last so it covers all UI
         if self.death_timer > 0:
