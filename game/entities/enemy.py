@@ -25,7 +25,7 @@ from game.settings import (
     ENEMY_AGGRO_RANGE, ENEMY_DEAGGRO_RANGE,
     ENEMY_ATTACK_RANGE, ENEMY_ATTACK_DAMAGE, ENEMY_ATTACK_COOLDOWN,
     ENEMY_PATROL_RADIUS,
-    GRAVITY, MAX_FALL_SPEED,
+    GRAVITY, MAX_FALL_SPEED, JUMP_FORCE,
 )
 from game.systems.combat  import AttackHitbox
 from game.systems.assets  import get as _assets
