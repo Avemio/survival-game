@@ -1,9 +1,11 @@
 {
-  "zone": "zone_02",
+  "save_version": 1,
+  "zone": "zone_01",
   "player": {
-    "x": 106,
+    "x": 107,
     "y": 596,
     "health": 100,
+    "mana": 100.0,
     "inventory": [
       {
         "item_id": "bow",
@@ -11,21 +13,58 @@
       },
       {
         "item_id": "arrow",
-        "quantity": 15
+        "quantity": 40
       },
       {
         "item_id": "stone",
-        "quantity": 8
+        "quantity": 29
       },
       {
         "item_id": "wood",
-        "quantity": 16
+        "quantity": 58
       },
       {
         "item_id": "herb",
-        "quantity": 9
+        "quantity": 27
+      },
+      {
+        "item_id": "ability_fireball",
+        "quantity": 1
+      },
+      {
+        "item_id": "ability_poison_cloud",
+        "quantity": 1
+      },
+      {
+        "item_id": "ability_earthquake",
+        "quantity": 1
       },
       null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "ability_slots": [
       null,
       null
     ]
@@ -35,12 +74,28 @@
       0,
       1,
       2,
+      3,
       4,
       5,
-      6
+      6,
+      7,
+      8,
+      9
     ],
     "zone_02": [
-      0
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "zone_01_interior": [
+      0,
+      1,
+      2
     ]
   }
 }

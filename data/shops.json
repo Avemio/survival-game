@@ -1,0 +1,15 @@
+{
+  "general_store": {
+    "name": "General Store",
+    "buy_rate": 0.5,
+    "inventory": [
+      {"item_id": "health_potion", "price": 20, "stock": -1},
+      {"item_id": "herb",          "price": 8,  "stock": -1},
+      {"item_id": "arrow",         "price": 3,  "stock": -1},
+      {"item_id": "wood",          "price": 4,  "stock": -1},
+      {"item_id": "stone",         "price": 4,  "stock": -1},
+      {"item_id": "plank",         "price": 10, "stock": -1},
+      {"item_id": "bow",           "price": 40, "stock": 3}
+    ]
+  }
+}

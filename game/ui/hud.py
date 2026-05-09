@@ -74,6 +74,9 @@ class HUD:
         # Arrow count cache: (count, Surface)
         self._arrow_cache = (-1, None)
 
+        # Gold display cache: (count, Surface)
+        self._gold_cache = (-1, None)
+
         # Health number cache: (hp_text, Surface)
         self._hp_cache = ("", None)
 
@@ -88,6 +91,7 @@ class HUD:
         self._draw_ability_slots(screen)
         self._draw_wind(screen, wind)
         self._draw_arrow_count(screen)
+        self._draw_gold(screen)
         self._draw_status_effects(screen)
 
     # ------------------------------------------------------------------
@@ -255,6 +259,17 @@ class HUD:
             surf = self._wind_font.render(f"Arrows: {count}", True, (220, 200, 120))
             self._arrow_cache = (count, surf)
         screen.blit(self._arrow_cache[1], (_WIND_HUD_X, _WIND_HUD_Y + 28))
+
+    # ------------------------------------------------------------------
+    # Gold counter (below wind indicator)
+    # ------------------------------------------------------------------
+
+    def _draw_gold(self, screen):
+        gold = self.player.inventory.count("gold")
+        if self._gold_cache[0] != gold:
+            surf = self._wind_font.render(f"⬡ {gold}g", True, (255, 210, 30))
+            self._gold_cache = (gold, surf)
+        screen.blit(self._gold_cache[1], (_WIND_HUD_X, _WIND_HUD_Y + 46))
 
     # ------------------------------------------------------------------
     # Status effect icons (top of health bar)

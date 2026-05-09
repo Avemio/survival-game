@@ -148,8 +148,9 @@ class Zone:
 
         for n in data.get("npcs", []):
             npc_def = npc_types.get(n["type"], {})
-            lines   = dialogue_data.get(n["dialogue_id"], [])
-            self.npcs.append(NPC(n["x"], n["y"], npc_def, lines))
+            lines   = dialogue_data.get(n.get("dialogue_id", ""), [])
+            shop_id = n.get("shop_id")
+            self.npcs.append(NPC(n["x"], n["y"], npc_def, lines, shop_id=shop_id))
 
         for ex in data.get("exits", []):
             self.exits.append(ZoneExit(

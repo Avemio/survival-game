@@ -32,6 +32,8 @@ from game.systems.saving      import save_game, load_game
 from game.systems.crafting    import CraftingSystem
 from game.systems.abilities   import AbilitySystem
 from game.systems.effects     import apply_status
+from game.systems.shop        import ShopSystem
+from game.ui.shop_menu        import ShopMenu
 from game.entities.projectile import Projectile
 
 
@@ -113,6 +115,8 @@ class Engine:
         self.dialogue_box     = DialogueBox()
         self.pause_menu       = PauseMenu()
         self.inventory_screen = InventoryScreen(self.player)
+        self.shop_system      = ShopSystem()
+        self.shop_menu        = ShopMenu(self.player, self.shop_system)
 
         # Death overlay — all surfaces built once at init (never inside draw)
         self.death_timer    = 0.0
@@ -180,6 +184,11 @@ class Engine:
                     self.pause_menu.handle_event(event)
                     continue
 
+                # Shop menu intercepts all keys while open
+                if self.shop_menu.open:
+                    self.shop_menu.handle_event(event)
+                    continue
+
                 # Inventory screen intercepts while open
                 if self.inventory_screen.open:
                     action = self.inventory_screen.handle_event(event)
@@ -190,7 +199,9 @@ class Engine:
                     continue
 
                 if event.key == pygame.K_ESCAPE:
-                    if self.crafting_menu.open:
+                    if self.shop_menu.open:
+                        self.shop_menu.close()
+                    elif self.crafting_menu.open:
                         self.crafting_menu.close()
                     elif self.dialogue_box.open:
                         pass
@@ -208,11 +219,18 @@ class Engine:
                 elif event.key == pygame.K_e:
                     if self.dialogue_box.open:
                         self.dialogue_box.advance()
+                    elif self.shop_menu.open:
+                        self.shop_menu.handle_event(event)
                     elif not self.crafting_menu.open:
-                        # Check NPCs first, then buildings
+                        # Check NPCs — shopkeepers open shop, others open dialogue
                         for npc in self.npcs:
                             if npc.interact_rect.colliderect(self.player.rect):
-                                self.dialogue_box.start(npc.name, npc.dialogue_lines)
+                                if npc.shop_id:
+                                    shop = self.shop_system.get(npc.shop_id)
+                                    name = shop.get("name", npc.name) if shop else npc.name
+                                    self.shop_menu.start(npc.shop_id, name)
+                                elif npc.dialogue_lines:
+                                    self.dialogue_box.start(npc.name, npc.dialogue_lines)
                                 break
                         else:
                             for building in self.buildings:
@@ -242,6 +260,7 @@ class Engine:
 
     def update(self, dt):
         self.crafting_menu.update(dt)
+        self.shop_menu.update(dt)
 
         # Death countdown — world paused; respawn fires when timer expires
         if self.death_timer > 0:
@@ -252,7 +271,8 @@ class Engine:
 
         # Pause all world simulation while any overlay is open
         if (self.pause_menu.open or self.crafting_menu.open
-                or self.dialogue_box.open or self.inventory_screen.open):
+                or self.dialogue_box.open or self.inventory_screen.open
+                or self.shop_menu.open):
             return
 
         self._update_wind(dt)
@@ -782,6 +802,9 @@ class Engine:
 
         # Inventory screen — drawn over HUD
         self.inventory_screen.draw(self.screen)
+
+        # Shop menu — drawn over HUD/inventory
+        self.shop_menu.draw(self.screen)
 
         # Pause menu — drawn over dialogue (Esc can't open it while dialogue is active)
         self.pause_menu.draw(self.screen)

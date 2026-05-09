@@ -11,11 +11,12 @@ from game.systems.assets import get as _assets
 
 
 class NPC:
-    def __init__(self, x, y, npc_def, dialogue_lines):
+    def __init__(self, x, y, npc_def, dialogue_lines, shop_id=None):
         """
         x, y           — top-left world position
         npc_def        — dict from npcs.json (name, color, width, height)
         dialogue_lines — ordered list of strings from dialogue.json
+        shop_id        — optional shop ID; if set, E opens the shop instead of dialogue
         """
         w = npc_def.get("width",  28)
         h = npc_def.get("height", 52)
@@ -24,18 +25,30 @@ class NPC:
         self.name           = npc_def.get("name",  "???")
         self.color          = tuple(npc_def.get("color", [200, 190, 140]))
         self.dialogue_lines = dialogue_lines   # list[str]
+        self.shop_id        = shop_id
 
         # Sprite — scaled once at init; None = fall back to colored rect
         sprite_name  = npc_def.get("sprite", f"npc_{self.name.lower()}")
         self._sprite = _assets().get_sprite_scaled(sprite_name, w, h)
 
-        # Font and pre-built surfaces for the "[E] Talk" overhead prompt — created once
+        # Prompt text and color depend on NPC role
+        if shop_id:
+            prompt_text  = "[E] Shop"
+            prompt_color = (255, 215, 50)   # gold for shopkeepers
+        elif dialogue_lines:
+            prompt_text  = "[E] Talk"
+            prompt_color = (255, 255, 255)
+        else:
+            prompt_text  = ""
+            prompt_color = (255, 255, 255)
+
+        # Font and pre-built surfaces for overhead prompt — created once
         self._prompt_font   = pygame.font.SysFont(None, 18)
-        self._prompt_shadow = self._prompt_font.render("[E] Talk", True, (0, 0, 0))
-        self._prompt_surf   = self._prompt_font.render("[E] Talk", True, (255, 255, 255))
+        self._prompt_shadow = self._prompt_font.render(prompt_text, True, (0, 0, 0))
+        self._prompt_surf   = self._prompt_font.render(prompt_text, True, prompt_color) \
+                              if prompt_text else None
 
         # Interaction trigger rect: 40 px wider on each side.
-        # NPCs are static, so this never changes — compute once.
         self.interact_rect  = self.rect.inflate(80, 0)
 
     # ------------------------------------------------------------------
@@ -54,8 +67,8 @@ class NPC:
         else:
             pygame.draw.rect(screen, self.color, r)
 
-        # Overhead "[E] Talk" prompt when the player is within interact range
-        if self.interact_rect.colliderect(player_rect) and self.dialogue_lines:
+        # Overhead prompt when player is within interact range
+        if self._prompt_surf and self.interact_rect.colliderect(player_rect):
             r  = camera.apply(self.rect)
             px = r.centerx - self._prompt_surf.get_width() // 2
             py = r.top - self._prompt_surf.get_height() - 5

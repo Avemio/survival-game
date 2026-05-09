@@ -1,53 +1,67 @@
 {
-  "wood": {
-    "name":      "Wood",
-    "color":     [139, 90,  43],
+  "gold": {
+    "name":      "Gold",
+    "color":     [255, 210, 30],
     "stackable": true,
-    "max_stack": 99
+    "max_stack": 9999
+  },
+  "wood": {
+    "name":       "Wood",
+    "color":      [139, 90,  43],
+    "stackable":  true,
+    "max_stack":  99,
+    "sell_value": 2
   },
   "stone": {
-    "name":      "Stone",
-    "color":     [150, 150, 150],
-    "stackable": true,
-    "max_stack": 99
+    "name":       "Stone",
+    "color":      [150, 150, 150],
+    "stackable":  true,
+    "max_stack":  99,
+    "sell_value": 2
   },
   "herb": {
-    "name":      "Herb",
-    "color":     [60,  200, 80],
-    "stackable": true,
-    "max_stack": 30
+    "name":       "Herb",
+    "color":      [60,  200, 80],
+    "stackable":  true,
+    "max_stack":  30,
+    "sell_value": 5
   },
   "health_potion": {
-    "name":       "Health Potion",
-    "color":      [220, 50,  50],
-    "stackable":  true,
-    "max_stack":  10,
-    "use":        "heal",
-    "heal_amount": 30
+    "name":        "Health Potion",
+    "color":       [220, 50,  50],
+    "stackable":   true,
+    "max_stack":   10,
+    "use":         "heal",
+    "heal_amount": 30,
+    "sell_value":  10
   },
   "plank": {
-    "name":      "Plank",
-    "color":     [180, 120, 60],
-    "stackable": true,
-    "max_stack": 99
+    "name":       "Plank",
+    "color":      [180, 120, 60],
+    "stackable":  true,
+    "max_stack":  99,
+    "sell_value": 4
   },
   "bow": {
-    "name":      "Bow",
-    "color":     [160, 100, 40],
-    "stackable": false,
-    "max_stack": 1
+    "name":       "Bow",
+    "color":      [160, 100, 40],
+    "stackable":  false,
+    "max_stack":  1,
+    "sell_value": 18
   },
   "arrow": {
-    "name":      "Arrow",
-    "color":     [200, 190, 120],
-    "stackable": true,
-    "max_stack": 99
+    "name":       "Arrow",
+    "color":      [200, 190, 120],
+    "stackable":  true,
+    "max_stack":  99,
+    "sell_value": 1
   },
   "stone_sword": {
-    "name":      "Stone Sword",
-    "color":     [160, 160, 170],
-    "stackable": false,
-    "max_stack": 1
+    "name":       "Stone Sword",
+    "color":      [160, 160, 170],
+    "stackable":  false,
+    "max_stack":  1,
+    "sell_value": 12
   },
   "ability_fireball": {
     "name":       "Fireball Scroll",

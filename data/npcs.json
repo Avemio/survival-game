@@ -12,5 +12,12 @@
     "color":  [150, 160, 200],
     "width":  28,
     "height": 52
+  },
+  "shopkeeper": {
+    "sprite": "npc_shopkeeper",
+    "name":   "Shopkeeper",
+    "color":  [255, 210, 80],
+    "width":  28,
+    "height": 52
   }
 }

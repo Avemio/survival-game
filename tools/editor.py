@@ -1513,22 +1513,28 @@ class ZoneTab(ttk.Frame):
         win.grab_set()
         f = ttk.Frame(win, padding=12)
         f.pack()
-        types = list(self._npctypes.keys()) or ["villager"]
+        types   = list(self._npctypes.keys()) or ["villager"]
         dlg_ids = list(self._dialogues.keys()) or []
-        v_type = _combo(f, 0, "NPC type", types, types[0] if types else "villager")
-        v_dlg  = _combo(f, 1, "Dialogue ID", dlg_ids, dlg_ids[0] if dlg_ids else "")
-        v_x    = _spin(f, 2, "X (world)", 0, 99999, wx)
-        v_y    = _spin(f, 3, "Y (world)", 0, 9999, wy)
+        shops   = list((_load(DATA_DIR / "shops.json")
+                        if (DATA_DIR / "shops.json").exists() else {}).keys())
+
+        v_type = _combo(f, 0, "NPC type",    types,   types[0] if types else "villager")
+        v_dlg  = _combo(f, 1, "Dialogue ID", [""] + dlg_ids, "")
+        v_shop = _combo(f, 2, "Shop ID",     [""] + shops,   "")
+        v_x    = _spin(f,  3, "X (world)",   0, 99999, wx)
+        v_y    = _spin(f,  4, "Y (world)",   0, 9999,  wy)
 
         def ok():
-            self._zone.setdefault("npcs", []).append({
-                "type": v_type.get(), "dialogue_id": v_dlg.get(),
-                "x": int(v_x.get()), "y": int(v_y.get())
-            })
+            entry = {"type": v_type.get(), "x": int(v_x.get()), "y": int(v_y.get())}
+            if v_dlg.get():
+                entry["dialogue_id"] = v_dlg.get()
+            if v_shop.get():
+                entry["shop_id"] = v_shop.get()
+            self._zone.setdefault("npcs", []).append(entry)
             self._redraw()
             win.destroy()
 
-        ttk.Button(f, text="Place", command=ok).grid(row=4, column=0, columnspan=2, pady=8)
+        ttk.Button(f, text="Place", command=ok).grid(row=5, column=0, columnspan=2, pady=8)
 
     def _add_drop_dialog(self, wx, wy):
         win = tk.Toplevel(self)
@@ -1681,6 +1687,159 @@ class ZoneTab(ttk.Frame):
 
 
 # ---------------------------------------------------------------------------
+# Shop tab
+# ---------------------------------------------------------------------------
+
+class ShopTab(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self._path = DATA_DIR / "shops.json"
+        self._data = _load(self._path) if self._path.exists() else {}
+        self._items = _load(DATA_DIR / "items.json") if (DATA_DIR / "items.json").exists() else {}
+        self._selected = None
+        self._build_ui()
+        self._refresh_list()
+
+    def _build_ui(self):
+        left = ttk.Frame(self)
+        left.pack(side="left", fill="y", padx=(8, 4), pady=8)
+        ttk.Label(left, text="Shops", font=("", 10, "bold")).pack()
+        self._listbox = tk.Listbox(left, width=20, exportselection=False)
+        self._listbox.pack(fill="y", expand=True)
+        self._listbox.bind("<<ListboxSelect>>", self._on_select)
+        btn_row = ttk.Frame(left)
+        btn_row.pack(fill="x", pady=(4, 0))
+        ttk.Button(btn_row, text="New",    command=self._new).pack(side="left")
+        ttk.Button(btn_row, text="Delete", command=self._delete).pack(side="left", padx=4)
+
+        right = ttk.LabelFrame(self, text="Shop Properties")
+        right.pack(side="left", fill="both", expand=True, padx=(4, 8), pady=8)
+        right.columnconfigure(1, weight=1)
+
+        f = right
+        self._v_id       = _field(f, 0, "Shop ID (key)")
+        self._v_name     = _field(f, 1, "Display name")
+        self._v_buyrate  = _spin(f,  2, "Buy rate (sell multiplier)", 0.0, 1.0, 0.5, 0.05)
+
+        ttk.Label(f, text="Inventory:", font=("", 9, "bold")).grid(
+            row=3, column=0, sticky="w", pady=(10, 2))
+
+        inv_frame = ttk.Frame(f)
+        inv_frame.grid(row=4, column=0, columnspan=2, sticky="ew")
+
+        self._inv_tree = ttk.Treeview(
+            inv_frame, columns=("item", "price", "stock"), show="headings", height=8)
+        self._inv_tree.heading("item",  text="Item ID")
+        self._inv_tree.heading("price", text="Price (g)")
+        self._inv_tree.heading("stock", text="Stock (-1=∞)")
+        self._inv_tree.column("item",  width=160)
+        self._inv_tree.column("price", width=80)
+        self._inv_tree.column("stock", width=80)
+        self._inv_tree.pack(side="left", fill="x", expand=True)
+
+        btns = ttk.Frame(inv_frame)
+        btns.pack(side="left", padx=(4, 0))
+        ttk.Button(btns, text="+", width=3, command=self._add_item).pack(pady=2)
+        ttk.Button(btns, text="−", width=3, command=self._del_item).pack()
+
+        ttk.Button(f, text="Save Shop", command=self._save_entry).grid(
+            row=5, column=0, columnspan=2, pady=10)
+
+    def _refresh_list(self):
+        self._listbox.delete(0, "end")
+        for k in self._data:
+            self._listbox.insert("end", k)
+
+    def _on_select(self, _=None):
+        sel = self._listbox.curselection()
+        if not sel:
+            return
+        key = self._listbox.get(sel[0])
+        self._selected = key
+        d = self._data[key]
+        self._v_id.set(key)
+        self._v_name.set(d.get("name", key))
+        self._v_buyrate.set(float(d.get("buy_rate", 0.5)))
+        self._inv_tree.delete(*self._inv_tree.get_children())
+        for entry in d.get("inventory", []):
+            self._inv_tree.insert("", "end", values=(
+                entry["item_id"], entry["price"], entry.get("stock", -1)))
+
+    def _new(self):
+        key = simpledialog.askstring("New Shop", "Enter shop ID (e.g. 'blacksmith'):")
+        if not key:
+            return
+        key = key.strip().lower().replace(" ", "_")
+        if key in self._data:
+            messagebox.showerror("Error", f"'{key}' already exists.")
+            return
+        self._data[key] = {"name": key.replace("_", " ").title(),
+                           "buy_rate": 0.5, "inventory": []}
+        self._refresh_list()
+        keys = list(self._data.keys())
+        self._listbox.selection_set(keys.index(key))
+        self._on_select()
+
+    def _delete(self):
+        if not self._selected:
+            return
+        if not messagebox.askyesno("Delete", f"Delete shop '{self._selected}'?"):
+            return
+        del self._data[self._selected]
+        self._selected = None
+        self._refresh_list()
+        _save(self._path, self._data)
+
+    def _add_item(self):
+        win = tk.Toplevel(self)
+        win.title("Add Shop Item")
+        win.grab_set()
+        f = ttk.Frame(win, padding=12)
+        f.pack()
+        items = list(self._items.keys()) or []
+        v_item  = _combo(f, 0, "Item ID", items, items[0] if items else "")
+        v_price = _spin(f,  1, "Price (gold)", 1, 9999, 10)
+        v_stock = _spin(f,  2, "Stock (-1 = unlimited)", -1, 999, -1)
+
+        def ok():
+            self._inv_tree.insert("", "end", values=(
+                v_item.get(), int(v_price.get()), int(v_stock.get())))
+            win.destroy()
+
+        ttk.Button(f, text="Add", command=ok).grid(row=3, column=0, columnspan=2, pady=8)
+
+    def _del_item(self):
+        sel = self._inv_tree.selection()
+        if sel:
+            self._inv_tree.delete(sel[0])
+
+    def _save_entry(self):
+        key = self._v_id.get().strip().lower().replace(" ", "_")
+        if not key:
+            messagebox.showerror("Error", "ID cannot be empty.")
+            return
+        inventory = []
+        for row_id in self._inv_tree.get_children():
+            vals = self._inv_tree.item(row_id, "values")
+            inventory.append({"item_id": vals[0], "price": int(vals[1]),
+                               "stock": int(vals[2])})
+        entry = {
+            "name":      self._v_name.get() or key,
+            "buy_rate":  round(self._v_buyrate.get(), 2),
+            "inventory": inventory,
+        }
+        if self._selected and self._selected != key:
+            del self._data[self._selected]
+        self._data[key] = entry
+        self._selected = key
+        _save(self._path, self._data)
+        self._refresh_list()
+        keys = list(self._data.keys())
+        self._listbox.selection_set(keys.index(key))
+        messagebox.showinfo("Saved", f"Shop '{key}' saved.")
+
+
+# ---------------------------------------------------------------------------
 # Main application
 # ---------------------------------------------------------------------------
 
@@ -1707,6 +1866,7 @@ class EditorApp(tk.Tk):
         nb.add(RecipeTab(nb),  text="  Recipes  ")
         nb.add(NPCTab(nb),     text="  NPCs  ")
         nb.add(AbilityTab(nb), text="  Abilities  ")
+        nb.add(ShopTab(nb),    text="  Shops  ")
         nb.add(ZoneTab(nb),    text="  Zone Editor  ")
 
         # Menu bar

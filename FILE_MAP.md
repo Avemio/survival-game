@@ -79,13 +79,16 @@
 | `systems/effects.py` | StatusEffect system — poison, burn, stun, freeze, slow; tick_all() applied to entities each frame |
 | `systems/active_attacks.py` | Special attack objects — WaveAttack, AreaAttack, AuraAttack; updated and drawn by engine |
 | `systems/abilities.py` | AbilitySystem — reads abilities.json, dispatches to correct attack type, handles mana/item costs |
+| `systems/shop.py` | ShopSystem — loads shops.json, handles buy/sell transactions against player inventory + gold |
 
 ## ui/ (additional)
 | File | Purpose |
 |------|---------|
 | `ui/inventory_screen.py` | 32-slot grid inventory (I key) — keyboard nav, use/drop items, hotbar mirrors first 8 slots |
+| `ui/shop_menu.py` | Shop overlay — buy/sell panel opened by pressing E near a shopkeeper NPC |
 
 ## data/ (additional)
 | File | Purpose |
 |------|---------|
 | `data/abilities.json` | All ability definitions — type, damage, status_effect, mana_cost, cooldown, color, sound |
+| `data/shops.json` | Shop definitions — name, buy_rate, inventory (item_id, price, stock) |

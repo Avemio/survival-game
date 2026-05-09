@@ -41,6 +41,7 @@
     {"x": 2900, "y": 596, "w": 60, "h": 64}
   ],
   "item_drops": [
+    {"item_id": "gold",               "quantity": 30, "x": 120,  "y": 640},
     {"item_id": "stone",              "quantity": 5,  "x": 160,  "y": 640},
     {"item_id": "bow",                "quantity": 1,  "x": 340,  "y": 640},
     {"item_id": "arrow",              "quantity": 15, "x": 390,  "y": 640},
@@ -53,7 +54,8 @@
     {"item_id": "arrow",              "quantity": 8,  "x": 4700, "y": 465}
   ],
   "npcs": [
-    {"type": "villager", "dialogue_id": "villager_01", "x": 300, "y": 608}
+    {"type": "villager",    "dialogue_id": "villager_01", "x": 300, "y": 608},
+    {"type": "shopkeeper",  "dialogue_id": "",  "shop_id": "general_store", "x": 480, "y": 608}
   ],
   "exits": [
     {"x": 4950, "y": 0, "w": 50, "h": 720, "target_zone": "zone_02"}
