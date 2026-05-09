@@ -13,6 +13,7 @@ import pygame
 from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
                                    BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR, ENEMY_ATTACK_COLOR,
                                    DEATH_OVERLAY_DURATION, DEATH_TEXT_COLOR,
+                                   PLAYER_COLOR, ENEMY_COLOR, ENEMY_HIT_COLOR,
                                    ARROW_SPEED, ARROW_DAMAGE, ARROW_WIDTH, ARROW_HEIGHT,
                                    WIND_MAX, WIND_CHANGE_RATE, WIND_TARGET_MIN, WIND_TARGET_MAX,
                                    AIM_PREVIEW_STEPS, AIM_PREVIEW_STEP_T, AIM_DOT_COLOR,
@@ -28,6 +29,20 @@ from game.ui.pause_menu      import PauseMenu
 from game.systems.saving     import save_game, load_game
 from game.systems.crafting   import CraftingSystem
 from game.entities.projectile import Projectile
+
+
+class _Particle:
+    """Lightweight visual particle — world-space position, fades and shrinks over its lifetime."""
+    __slots__ = ('pos', 'vel', 'color', 'life', 'max_life', 'radius', 'gravity')
+
+    def __init__(self, x, y, vx, vy, color, life, radius, gravity=400.0):
+        self.pos      = pygame.math.Vector2(x, y)
+        self.vel      = pygame.math.Vector2(vx, vy)
+        self.color    = color
+        self.life     = life
+        self.max_life = life
+        self.radius   = radius
+        self.gravity  = gravity
 
 
 class Engine:
@@ -105,10 +120,27 @@ class Engine:
         # Projectiles
         self.projectiles = []
 
+        # Particles — visual only, no gameplay effect
+        self.particles = []
+
         # Wind — drifts slowly toward a random target strength
         self.wind          = 0.0
         self._wind_target  = 0.0
         self._wind_timer   = random.uniform(WIND_TARGET_MIN, WIND_TARGET_MAX)
+
+        # Atmospheric wind streaks (screen-space, purely visual)
+        self._wind_streaks = [
+            {
+                'x':      random.uniform(0, SCREEN_WIDTH),
+                'y':      random.uniform(50, SCREEN_HEIGHT - 80),
+                'length': random.randint(20, 55),
+            }
+            for _ in range(10)
+        ]
+
+        # Loot pity: guarantee a rare drop every _PITY_THRESHOLD kills without one
+        self._pity_count     = 0
+        self._PITY_THRESHOLD = 8
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -187,7 +219,9 @@ class Engine:
         self._update_item_drops()
         self._update_save_points(dt)
         self._update_zone_exits()
-        self.camera.update(self.player.rect)
+        self._update_particles(dt)
+        self._update_wind_streaks(dt)
+        self.camera.update(self.player.rect, dt)
 
         if self.player.health <= 0:
             self.death_timer = DEATH_OVERLAY_DURATION
@@ -200,20 +234,28 @@ class Engine:
                 living.append(enemy)
             else:
                 self._spawn_drops(enemy)
+                self._spawn_death_particles(enemy.rect.center, ENEMY_COLOR, 10)
         self.enemies[:] = living
 
     def _spawn_drops(self, enemy):
         """Roll loot table and create ItemDrop objects at the enemy's position."""
         item_defs = self.player.inventory.item_defs
+        got_rare  = False
         for drop in enemy.loot:
-            if random.random() < drop.get("chance", 1.0):
+            chance  = drop.get("chance", 1.0)
+            is_rare = chance < 1.0
+            # Pity system: guarantee rare drops after _PITY_THRESHOLD kills without one
+            forced = is_rare and self._pity_count >= self._PITY_THRESHOLD
+            if forced or random.random() < chance:
+                if is_rare:
+                    got_rare = True
                 item_id  = drop["item_id"]
                 quantity = drop.get("quantity", 1)
                 color    = tuple(item_defs.get(item_id, {}).get("color", [200, 200, 200]))
-                # Center the drop on the enemy, sitting at its feet
                 x = enemy.rect.centerx - ItemDrop.SIZE // 2
                 y = enemy.rect.bottom  - ItemDrop.SIZE
                 self.item_drops.append(ItemDrop(x, y, item_id, quantity, color))
+        self._pity_count = 0 if got_rare else self._pity_count + 1
 
     def _update_item_drops(self):
         """Pick up any drops the player is standing on."""
@@ -241,6 +283,8 @@ class Engine:
                     and hitbox.rect.colliderect(self.player.rect)):
                 self.player.take_damage(hitbox.damage)
                 hitbox.already_hit.add(self.player)
+                self.camera.shake(intensity=3, duration=0.12)
+                self._spawn_hit_particles(self.player.rect.center, PLAYER_COLOR, 5)
             if hitbox.expired:
                 enemy.active_hitbox = None
 
@@ -254,6 +298,8 @@ class Engine:
                     and hitbox.rect.colliderect(enemy.rect)):
                 enemy.take_damage(hitbox.damage)
                 hitbox.already_hit.add(enemy)
+                self.camera.shake(intensity=4, duration=0.10)
+                self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 6)
         if hitbox.expired:
             self.player.active_hitbox = None
 
@@ -316,8 +362,55 @@ class Engine:
         if self._wind_timer <= 0:
             self._wind_target = random.uniform(-WIND_MAX, WIND_MAX)
             self._wind_timer  = random.uniform(WIND_TARGET_MIN, WIND_TARGET_MAX)
-        # Smooth lerp toward the target wind strength
         self.wind += (self._wind_target - self.wind) * WIND_CHANGE_RATE * dt
+
+    def _update_wind_streaks(self, dt):
+        """Scroll atmospheric streak positions with the wind; wrap at screen edges."""
+        for s in self._wind_streaks:
+            s['x'] += self.wind * dt * 0.8
+            if s['x'] > SCREEN_WIDTH + 60:
+                s['x'] = -60.0
+            elif s['x'] < -60:
+                s['x'] = SCREEN_WIDTH + 60.0
+
+    # ------------------------------------------------------------------
+    # Particle helpers
+    # ------------------------------------------------------------------
+
+    def _update_particles(self, dt):
+        for p in self.particles:
+            p.vel.y += p.gravity * dt
+            p.pos   += p.vel * dt
+            p.life  -= dt
+        self.particles[:] = [p for p in self.particles if p.life > 0]
+
+    def _spawn_hit_particles(self, pos, color, count=6):
+        for _ in range(count):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(60, 190)
+            self.particles.append(_Particle(
+                pos[0], pos[1],
+                math.cos(angle) * speed,
+                math.sin(angle) * speed - 50,
+                color,
+                random.uniform(0.14, 0.26),
+                random.randint(2, 3),
+                gravity=420.0,
+            ))
+
+    def _spawn_death_particles(self, pos, color, count=10):
+        for _ in range(count):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(60, 240)
+            self.particles.append(_Particle(
+                pos[0], pos[1],
+                math.cos(angle) * speed,
+                math.sin(angle) * speed - 70,
+                color,
+                random.uniform(0.28, 0.55),
+                random.randint(2, 5),
+                gravity=480.0,
+            ))
 
     def _update_projectiles(self, dt):
         for proj in self.projectiles:
@@ -425,7 +518,7 @@ class Engine:
         for sp in self.save_points:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
 
-        self.camera.update(self.player.rect)
+        self.camera.update(self.player.rect, 0.0)
 
     def _draw_aim_indicator(self):
         """Draw a dotted trajectory preview arc including gravity and wind."""
@@ -456,6 +549,17 @@ class Engine:
 
     def draw(self):
         self.screen.fill(BG_COLOR)
+
+        # Atmospheric wind streaks — drawn first, behind everything
+        if abs(self.wind) > 8:
+            streak_color = (52, 52, 62)
+            for s in self._wind_streaks:
+                length = int(s['length'] * abs(self.wind) / WIND_MAX)
+                if length > 3:
+                    x1 = int(s['x'])
+                    x2 = x1 + (length if self.wind > 0 else -length)
+                    pygame.draw.line(self.screen, streak_color,
+                                     (x1, int(s['y'])), (x2, int(s['y'])), 1)
 
         # Draw platforms
         for p in self.platforms:
@@ -491,6 +595,19 @@ class Engine:
         # Draw aim indicator while player is aiming
         if self.player.aiming:
             self._draw_aim_indicator()
+
+        # Draw particles (world-space, fading color + shrinking radius)
+        for p in self.particles:
+            sx, sy = self.camera.world_to_screen(p.pos.x, p.pos.y)
+            if 0 <= sx <= SCREEN_WIDTH and 0 <= sy <= SCREEN_HEIGHT:
+                ratio = p.life / p.max_life
+                r     = max(1, int(p.radius * ratio))
+                color = (
+                    int(p.color[0] * ratio),
+                    int(p.color[1] * ratio),
+                    int(p.color[2] * ratio),
+                )
+                pygame.draw.circle(self.screen, color, (sx, sy), r)
 
         # Draw attack hitboxes (debug — remove when sprites exist)
         hitbox = self.player.active_hitbox
