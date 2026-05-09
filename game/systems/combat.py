@@ -23,8 +23,10 @@ class AttackHitbox:
         self.timer      = ATTACK_DURATION
         self.already_hit = set()          # enemies we've already damaged this swing
 
-        # Build rect — offset forward from owner's left/right edge
-        x = (owner.rect.right if self.facing == 1 else owner.rect.left - ATTACK_WIDTH)
+        # Build rect — offset forward from owner's center so point-blank targets are hit.
+        # Starting from the edge would leave a dead zone when entities fully overlap.
+        x = (owner.rect.centerx if self.facing == 1
+             else owner.rect.centerx - ATTACK_WIDTH)
         self.rect = pygame.Rect(x, owner.rect.y, ATTACK_WIDTH, ATTACK_HEIGHT)
 
     # ------------------------------------------------------------------
@@ -33,8 +35,8 @@ class AttackHitbox:
 
     def update(self, dt):
         # Track the owner so the hitbox moves with them mid-swing
-        x = (self.owner.rect.right if self.facing == 1
-             else self.owner.rect.left - ATTACK_WIDTH)
+        x = (self.owner.rect.centerx if self.facing == 1
+             else self.owner.rect.centerx - ATTACK_WIDTH)
         self.rect.x = x
         self.rect.y = self.owner.rect.y
 
