@@ -16,15 +16,17 @@
 ---
 
 ## Second Brain duties
-Bobby's Obsidian vault lives at:
-`C:\Users\bobby\OneDrive\Documents\Claude Code\Second Brain\`
+Bobby's Obsidian vault is the **primary memory system for this project**.
+Path: `C:\Users\bobby\OneDrive\Documents\Claude Code\Second Brain\`
+
+**This is where all persistent memory lives — not the .claude project memory folder.**
 
 **Update these files during/after every session:**
-- `Projects/active/Survival Game.md` — update milestone table, session log, resume talking points as work progresses
-- `Reviews/YYYY-MM-DD - Survival Game Session.md` — create at end of meaningful sessions (what was built, decisions made, patterns learned)
+- `Projects/active/Survival Game.md` — milestone table, session log, resume talking points, pending work. Update as milestones complete, not just at the end.
+- `Reviews/YYYY-MM-DD - Survival Game Session.md` — create at the end of any meaningful session (what was built, decisions made, patterns learned)
 - `Knowledge/` — if anything technically interesting is researched or solved, save a note there
 
-Don't wait until the end. Update the project file as milestones complete.
+**The milestone table and "Smaller Deferred Items" section in `Survival Game.md` are the authoritative backlog.** Check them at the start of every session to know what's queued.
 
 ---
 
@@ -46,10 +48,10 @@ data/
 ---
 
 ## Current status
-**Last completed:** M10B — player death/respawn + item usage  
-**Next:** M11 — Sprites + sound
+**Last completed:** M11 — Code review + polish pass (2026-05-08)  
+**Next:** M12 — Animated Sprites
 
-Full milestone table in `Survival Game.md` in the second brain.
+Full milestone table (including M12–M17 backlog) in `Survival Game.md` in the Second Brain.
 
 ---
 
