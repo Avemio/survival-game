@@ -42,5 +42,51 @@
     "color":     [200, 190, 120],
     "stackable": true,
     "max_stack": 99
+  },
+  "stone_sword": {
+    "name":      "Stone Sword",
+    "color":     [160, 160, 170],
+    "stackable": false,
+    "max_stack": 1
+  },
+  "ability_fireball": {
+    "name":       "Fireball Scroll",
+    "color":      [255, 120, 20],
+    "stackable":  false,
+    "max_stack":  1,
+    "use":        "equip_ability",
+    "ability_id": "fireball"
+  },
+  "ability_wave_slash": {
+    "name":       "Wave Slash Scroll",
+    "color":      [80, 180, 255],
+    "stackable":  false,
+    "max_stack":  1,
+    "use":        "equip_ability",
+    "ability_id": "wave_slash"
+  },
+  "ability_earthquake": {
+    "name":       "Earthquake Scroll",
+    "color":      [180, 130, 60],
+    "stackable":  false,
+    "max_stack":  1,
+    "use":        "equip_ability",
+    "ability_id": "earthquake"
+  },
+  "ability_poison_cloud": {
+    "name":       "Poison Cloud Scroll",
+    "color":      [80, 200, 80],
+    "stackable":  false,
+    "max_stack":  1,
+    "use":        "equip_ability",
+    "ability_id": "poison_cloud"
+  },
+  "ability_ice_lance": {
+    "name":       "Ice Lance Scroll",
+    "color":      [120, 200, 255],
+    "stackable":  false,
+    "max_stack":  1,
+    "use":        "equip_ability",
+    "ability_id": "ice_lance"
   }
 }

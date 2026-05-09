@@ -29,6 +29,7 @@ from game.settings import (
 )
 from game.systems.combat  import AttackHitbox
 from game.systems.assets  import get as _assets
+from game.systems.effects import tick_all
 
 
 class EnemyState(Enum):
@@ -74,9 +75,14 @@ class Enemy:
         self._spawn_x        = float(x)   # leash anchor — enemy won't patrol past ± patrol_radius
 
         self.state         = EnemyState.PATROL
-        self._attack_timer = 0.0   # counts down to 0; 0 = ready to attack
-        self._windup_timer = 0.0   # counts down to 0 while winding up
-        self.active_hitbox = None  # set during ATTACK; cleared by engine when expired
+        self._attack_timer = 0.0
+        self._windup_timer = 0.0
+        self.active_hitbox = None
+
+        # Status effects
+        self.status_effects: list = []
+        self.stunned:   bool  = False
+        self.slow_factor: float = 1.0
 
         # Sprite — scaled once at init; None = fall back to colored rect
         sprite_name  = stats.get("sprite", "enemy_basic")
@@ -100,9 +106,17 @@ class Enemy:
         if not self.alive:
             return
 
-        # Tick timers (always, regardless of state)
+        # Status effects — sets stunned / slow_factor
+        tick_all(self, dt)
+
+        # Tick timers
         if self.hit_flash     > 0: self.hit_flash     -= dt
         if self._attack_timer > 0: self._attack_timer -= dt
+
+        if self.stunned:
+            self.velocity.x = 0
+            self._move(dt, platforms)
+            return
 
         # Gravity — applied every frame; _resolve_y zeroes it on landing
         self.velocity.y += GRAVITY * dt
@@ -161,7 +175,7 @@ class Enemy:
 
     def _do_chase(self, dx):
         self.facing     = 1 if dx > 0 else -1
-        self.velocity.x = self.chase_speed * self.facing
+        self.velocity.x = self.chase_speed * self.facing * self.slow_factor
 
     def _begin_attack(self, dx):
         self.facing        = 1 if dx > 0 else -1

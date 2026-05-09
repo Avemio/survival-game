@@ -1,8 +1,8 @@
 """
 entities/player.py
-The player entity — position, movement, physics, and input handling.
+The player entity — position, movement, physics, mana, status effects, ability slots.
 Owns: rect, velocity, gravity, variable jump, collision resolution, drawing.
-Does NOT own: combat (systems/combat.py), crafting (M7C), animation (later).
+Does NOT own: combat (systems/combat.py), crafting, animation (later).
 
 Physics model:
   - Float position (self.pos) drives movement; rect snaps to it each frame.
@@ -14,12 +14,15 @@ import pygame
 from game.settings import (
     PLAYER_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_COLOR,
     GRAVITY, JUMP_FORCE, JUMP_HOLD_FORCE, MAX_JUMP_TIME, MAX_FALL_SPEED,
-    ATTACK_COOLDOWN, PLAYER_MAX_HEALTH, HOTBAR_SLOTS,
-    ARROW_ANGLE_MAX, ARROW_ANGLE_SPEED
+    ATTACK_COOLDOWN, PLAYER_MAX_HEALTH, PLAYER_MAX_MANA, MANA_REGEN_RATE,
+    HOTBAR_SLOTS, INVENTORY_SLOTS,
+    ARROW_ANGLE_MAX, ARROW_ANGLE_SPEED,
+    STATUS_COLORS,
 )
 from game.systems.combat    import AttackHitbox
 from game.systems.inventory import Inventory
 from game.systems.assets    import get as _assets
+from game.systems.effects   import tick_all
 
 # Module-level constant — avoids recreating this list every handle_input() call
 _HOTBAR_KEYS = [
@@ -31,30 +34,43 @@ _HOTBAR_KEYS = [
 class Player:
     def __init__(self, x, y):
         self.rect      = pygame.Rect(x, y, PLAYER_WIDTH, PLAYER_HEIGHT)
-        self.pos       = pygame.math.Vector2(x, y)   # float position
-        self.velocity  = pygame.math.Vector2(0, 0)   # pixels per second
+        self.pos       = pygame.math.Vector2(x, y)
+        self.velocity  = pygame.math.Vector2(0, 0)
 
         # Jump state
         self.on_ground  = False
-        self.jump_held  = False   # True while space is held after a jump
-        self.jump_time  = 0.0     # seconds the jump extension has been active
+        self.jump_held  = False
+        self.jump_time  = 0.0
 
         # Health
         self.max_health = PLAYER_MAX_HEALTH
         self.health     = PLAYER_MAX_HEALTH
 
-        # Combat state
-        self.facing          = 1      # 1 = right, -1 = left
-        self.attack_cooldown = 0.0    # counts down to 0; can attack when 0
-        self.active_hitbox   = None   # set by attack(); cleared by engine
+        # Mana
+        self.max_mana = PLAYER_MAX_MANA
+        self.mana     = float(PLAYER_MAX_MANA)
 
-        # Inventory + hotbar
-        self.inventory    = Inventory(size=HOTBAR_SLOTS)
-        self._hotbar_slot = 0   # backing value; use the property to set safely
+        # Combat state
+        self.facing          = 1
+        self.attack_cooldown = 0.0
+        self.active_hitbox   = None
+
+        # Status effects
+        self.status_effects: list = []
+        self.stunned:   bool  = False
+        self.slow_factor: float = 1.0
+
+        # Ability slots — Q and R keys; store ability_id strings or None
+        self.ability_slots: list[str | None] = [None, None]
+        self.ability_cooldowns: list[float]  = [0.0, 0.0]
+
+        # Inventory (full 32-slot; hotbar shows first HOTBAR_SLOTS)
+        self.inventory    = Inventory(size=INVENTORY_SLOTS)
+        self._hotbar_slot = 0
 
         # Bow aiming
-        self.aiming    = False   # True while X is held
-        self.aim_angle = 0.0     # degrees above horizontal (0 = flat, 45 = up-diagonal)
+        self.aiming    = False
+        self.aim_angle = 0.0
 
         # Sprite — scaled once at init; None = fall back to colored rect
         self._sprite = _assets().get_sprite_scaled("player", PLAYER_WIDTH, PLAYER_HEIGHT)
@@ -65,7 +81,6 @@ class Player:
 
     @hotbar_slot.setter
     def hotbar_slot(self, value):
-        # Clamp to valid range so nothing can put the selection out of bounds
         self._hotbar_slot = max(0, min(HOTBAR_SLOTS - 1, value))
 
     # ------------------------------------------------------------------
@@ -73,53 +88,56 @@ class Player:
     # ------------------------------------------------------------------
 
     def handle_input(self, dt):
+        if self.stunned:
+            self.velocity.x = 0
+            return   # stun blocks all input
+
         keys = pygame.key.get_pressed()
 
-        # Horizontal — set velocity directly so releasing a key stops instantly
+        # Horizontal movement (respect slow_factor)
         self.velocity.x = 0
         if keys[pygame.K_LEFT]  or keys[pygame.K_a]:
-            self.velocity.x = -PLAYER_SPEED
+            self.velocity.x = -PLAYER_SPEED * self.slow_factor
             self.facing     = -1
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.velocity.x =  PLAYER_SPEED
+            self.velocity.x =  PLAYER_SPEED * self.slow_factor
             self.facing     =  1
 
-        # Hotbar slot selection — number keys 1-8 map to slots 0-7
+        # Hotbar slot selection
         for i, key in enumerate(_HOTBAR_KEYS):
             if keys[key]:
                 self.hotbar_slot = i
                 break
 
-        # Attack — Z key, only when cooldown is done, not already swinging, and not drawing bow
-        if keys[pygame.K_z] and self.attack_cooldown <= 0 and self.active_hitbox is None and not self.aiming:
+        # Basic attack — Z
+        if (keys[pygame.K_z]
+                and self.attack_cooldown <= 0
+                and self.active_hitbox is None
+                and not self.aiming):
             self.attack_cooldown = ATTACK_COOLDOWN
             self.active_hitbox   = AttackHitbox(self)
 
-        # Bow aim angle — UP/DOWN adjust angle while X is held (engine fires on key-up)
+        # Bow aim
         if self.aiming:
             if keys[pygame.K_UP]:
                 self.aim_angle = min(ARROW_ANGLE_MAX,  self.aim_angle + ARROW_ANGLE_SPEED * dt)
             if keys[pygame.K_DOWN]:
                 self.aim_angle = max(-ARROW_ANGLE_MAX, self.aim_angle - ARROW_ANGLE_SPEED * dt)
 
-        # Jump — UP arrow is stolen by aim angle while aiming, so exclude it then
+        # Jump
         jump_key = keys[pygame.K_SPACE] or keys[pygame.K_w] or (
             keys[pygame.K_UP] and not self.aiming
         )
-
         if jump_key:
             if self.on_ground and not self.jump_held:
-                # Initial jump impulse
                 self.velocity.y = -JUMP_FORCE
                 self.on_ground  = False
                 self.jump_held  = True
                 self.jump_time  = 0.0
             elif self.jump_held and self.jump_time < MAX_JUMP_TIME and self.velocity.y < 0:
-                # Extend jump while: key held, within time limit, still rising
                 self.velocity.y -= JUMP_HOLD_FORCE * dt
                 self.jump_time  += dt
         else:
-            # Key released — stop extending, gravity takes over naturally
             self.jump_held = False
 
     # ------------------------------------------------------------------
@@ -128,71 +146,80 @@ class Player:
 
     def apply_gravity(self, dt):
         self.velocity.y += GRAVITY * dt
-        # Clamp to terminal velocity so the player doesn't accelerate forever
         if self.velocity.y > MAX_FALL_SPEED:
             self.velocity.y = MAX_FALL_SPEED
 
-    # ------------------------------------------------------------------
-    # Collision resolution (called by engine after moving)
-    # ------------------------------------------------------------------
-
     def resolve_x(self, platforms):
-        """Push player out of any platform on the X axis."""
         for p in platforms:
             if self.rect.colliderect(p):
-                if self.velocity.x > 0:       # moving right — push left
+                if self.velocity.x > 0:
                     self.rect.right = p.left
-                elif self.velocity.x < 0:     # moving left — push right
+                elif self.velocity.x < 0:
                     self.rect.left  = p.right
                 self.velocity.x = 0
                 self.pos.x = self.rect.x
 
     def resolve_y(self, platforms):
-        """Push player out of any platform on the Y axis. Sets on_ground."""
         self.on_ground = False
         for p in platforms:
             if self.rect.colliderect(p):
-                if self.velocity.y > 0:       # falling down — land on top
+                if self.velocity.y > 0:
                     self.rect.bottom = p.top
                     self.on_ground   = True
-                    self.jump_held   = False  # can't extend a jump after landing
-                elif self.velocity.y < 0:     # moving up — hit ceiling
+                    self.jump_held   = False
+                elif self.velocity.y < 0:
                     self.rect.top = p.bottom
                 self.velocity.y = 0
                 self.pos.y = self.rect.y
 
     # ------------------------------------------------------------------
-    # Update (called by engine each frame)
+    # Update
     # ------------------------------------------------------------------
 
     def update(self, dt, platforms):
-        # Tick cooldown
+        # Tick status effects first (sets stunned / slow_factor)
+        tick_all(self, dt)
+
+        # Tick cooldowns
         if self.attack_cooldown > 0:
             self.attack_cooldown -= dt
+        for i in range(len(self.ability_cooldowns)):
+            if self.ability_cooldowns[i] > 0:
+                self.ability_cooldowns[i] -= dt
+
+        # Mana regen
+        if self.mana < self.max_mana:
+            self.mana = min(self.max_mana, self.mana + MANA_REGEN_RATE * dt)
 
         self.handle_input(dt)
         self.apply_gravity(dt)
 
-        # Move X → resolve X collisions
-        self.pos.x     += self.velocity.x * dt
-        self.rect.x     = int(self.pos.x)
+        self.pos.x  += self.velocity.x * dt
+        self.rect.x  = int(self.pos.x)
         self.resolve_x(platforms)
 
-        # Move Y → resolve Y collisions
-        self.pos.y     += self.velocity.y * dt
-        self.rect.y     = int(self.pos.y)
+        self.pos.y  += self.velocity.y * dt
+        self.rect.y  = int(self.pos.y)
         self.resolve_y(platforms)
 
     # ------------------------------------------------------------------
-    # Draw
+    # Combat helpers
     # ------------------------------------------------------------------
 
     def take_damage(self, amount):
         self.health = max(0, self.health - amount)
+
+    # ------------------------------------------------------------------
+    # Draw
+    # ------------------------------------------------------------------
 
     def draw(self, screen, camera):
         r = camera.apply_tuple(self.rect)
         if self._sprite:
             screen.blit(self._sprite, (r[0], r[1]))
         else:
-            pygame.draw.rect(screen, PLAYER_COLOR, r)
+            # Flash status effect color over the player
+            color = PLAYER_COLOR
+            if self.status_effects:
+                color = STATUS_COLORS.get(self.status_effects[0].type, PLAYER_COLOR)
+            pygame.draw.rect(screen, color, r)

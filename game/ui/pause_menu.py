@@ -15,7 +15,7 @@ from game.settings import (
 )
 
 _PANEL_W  = 500
-_PANEL_H  = 390
+_PANEL_H  = 444   # 13 rows × 26px + title + footer
 _PADDING  = 24
 _TITLE_H  = 52   # y-offset from panel top to the divider under "PAUSED"
 _ROW_H    = 26   # height per control row
@@ -25,10 +25,13 @@ _CONTROLS = [
     ("Move",           "WASD  /  Arrow Keys"),
     ("Jump",           "W  /  Space  /  Up"),
     ("Attack",         "Z"),
+    ("Ability Q",      "Q"),
+    ("Ability R",      "R"),
     ("Draw Bow",       "Hold X    (release to fire)"),
     ("Aim Bow",        "Up / Down  while drawing"),
     ("Use Item",       "F"),
     ("Hotbar Slot",    "1 – 8"),
+    ("Inventory",      "I"),
     ("Talk / Advance", "E"),
     ("Crafting Menu",  "C"),
     ("Pause",          "Esc"),

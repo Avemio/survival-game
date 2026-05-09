@@ -71,12 +71,12 @@ class Camera:
 
     def apply_tuple(self, rect):
         """
-        Like apply(), but returns a plain 4-tuple instead of a Rect (with shake).
+        Like apply(), but returns a plain 4-tuple of ints instead of a Rect (with shake).
         Use this for all direct pygame.draw calls — avoids a Rect allocation per frame.
         """
         return (
-            rect.x - self.offset.x + self._shake_x,
-            rect.y - self.offset.y + self._shake_y,
+            int(rect.x - self.offset.x + self._shake_x),
+            int(rect.y - self.offset.y + self._shake_y),
             rect.width,
             rect.height,
         )

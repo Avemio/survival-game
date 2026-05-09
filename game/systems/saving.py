@@ -36,10 +36,12 @@ def save_game(player, zone_id, collected_zone_drops):
     data = {
         "zone": zone_id,
         "player": {
-            "x":         player.rect.x,
-            "y":         player.rect.y,
-            "health":    player.max_health,
-            "inventory": player.inventory.serialize()
+            "x":             player.rect.x,
+            "y":             player.rect.y,
+            "health":        player.health,
+            "mana":          player.mana,
+            "inventory":     player.inventory.serialize(),
+            "ability_slots": player.ability_slots,
         },
         # Serialize: {zone_id: sorted list of ints}
         "collected_zone_drops": {k: sorted(v) for k, v in collected_zone_drops.items()}

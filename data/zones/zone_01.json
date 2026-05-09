@@ -40,13 +40,16 @@
     {"x": 1760, "y": 596, "w": 60, "h": 64}
   ],
   "item_drops": [
-    {"item_id": "stone", "quantity": 5,  "x": 160,  "y": 640},
-    {"item_id": "bow",   "quantity": 1,  "x": 340,  "y": 640},
-    {"item_id": "arrow", "quantity": 15, "x": 390,  "y": 640},
-    {"item_id": "wood",  "quantity": 3,  "x": 1380, "y": 375},
-    {"item_id": "herb",  "quantity": 2,  "x": 2610, "y": 285},
-    {"item_id": "stone", "quantity": 3,  "x": 3830, "y": 375},
-    {"item_id": "arrow", "quantity": 8,  "x": 4660, "y": 465}
+    {"item_id": "stone",              "quantity": 5,  "x": 160,  "y": 640},
+    {"item_id": "bow",                "quantity": 1,  "x": 340,  "y": 640},
+    {"item_id": "arrow",              "quantity": 15, "x": 390,  "y": 640},
+    {"item_id": "herb",               "quantity": 3,  "x": 550,  "y": 640},
+    {"item_id": "wood",               "quantity": 3,  "x": 1380, "y": 375},
+    {"item_id": "herb",               "quantity": 2,  "x": 2610, "y": 285},
+    {"item_id": "ability_wave_slash", "quantity": 1,  "x": 2620, "y": 285},
+    {"item_id": "stone",              "quantity": 3,  "x": 3830, "y": 375},
+    {"item_id": "ability_fireball",   "quantity": 1,  "x": 4660, "y": 465},
+    {"item_id": "arrow",              "quantity": 8,  "x": 4700, "y": 465}
   ],
   "npcs": [
     {"type": "villager", "dialogue_id": "villager_01", "x": 300, "y": 608}

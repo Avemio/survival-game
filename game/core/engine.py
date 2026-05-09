@@ -22,13 +22,16 @@ from game.core.camera        import Camera
 from game.entities.player    import Player
 from game.entities.item_drop import ItemDrop
 from game.world.world        import World
-from game.ui.hud             import HUD
-from game.ui.menus           import CraftingMenu
-from game.ui.dialogue        import DialogueBox
-from game.ui.pause_menu      import PauseMenu
-from game.systems.assets     import get as _assets
-from game.systems.saving     import save_game, load_game
-from game.systems.crafting   import CraftingSystem
+from game.ui.hud              import HUD
+from game.ui.menus            import CraftingMenu
+from game.ui.dialogue         import DialogueBox
+from game.ui.pause_menu       import PauseMenu
+from game.ui.inventory_screen import InventoryScreen
+from game.systems.assets      import get as _assets
+from game.systems.saving      import save_game, load_game
+from game.systems.crafting    import CraftingSystem
+from game.systems.abilities   import AbilitySystem
+from game.systems.effects     import apply_status
 from game.entities.projectile import Projectile
 
 
@@ -79,11 +82,16 @@ class Engine:
             self.player.rect.topleft = (px, py)
             self.player.pos.x        = px
             self.player.pos.y        = py
-            self.player.health       = player_data.get("health", self.player.max_health)
+            self.player.health = player_data.get("health", self.player.max_health)
+            self.player.mana   = float(player_data.get("mana", self.player.max_mana))
 
             inv_data = player_data.get("inventory")
             if inv_data:
                 self.player.inventory.load_slots(inv_data)
+
+            ab_slots = player_data.get("ability_slots")
+            if ab_slots and len(ab_slots) == 2:
+                self.player.ability_slots = list(ab_slots)
 
             raw = save_data.get("collected_zone_drops", {})
             if isinstance(raw, list):
@@ -101,17 +109,17 @@ class Engine:
 
         self.camera        = Camera()
         self.hud           = HUD(self.player)
-        self.crafting      = CraftingSystem()
-        self.crafting_menu = CraftingMenu(self.player, self.crafting)
-        self.dialogue_box  = DialogueBox()
-        self.pause_menu    = PauseMenu()
+        self.crafting         = CraftingSystem()
+        self.crafting_menu    = CraftingMenu(self.player, self.crafting)
+        self.dialogue_box     = DialogueBox()
+        self.pause_menu       = PauseMenu()
+        self.inventory_screen = InventoryScreen(self.player)
+        self.ability_system   = AbilitySystem()
 
         # Pre-warm save point overlap state — prevents a flash trigger if the
         # player spawns directly on top of a save point (e.g. after loading a save)
         for sp in self.save_points:
             sp.was_overlapping = sp.rect.colliderect(self.player.rect)
-
-        self._on_zone_loaded()
 
         # Death overlay — all surfaces built once at init (never inside draw)
         self.death_timer    = 0.0
@@ -120,11 +128,12 @@ class Engine:
         self._death_font    = pygame.font.SysFont(None, 96)
         self._death_text    = self._death_font.render("YOU DIED", True, DEATH_TEXT_COLOR)
 
-        # Projectiles
-        self.projectiles = []
+        # Projectiles and particles — must exist before _on_zone_loaded() is called
+        self.projectiles    = []
+        self.particles      = []
+        self.active_attacks = []   # WaveAttack, AreaAttack, AuraAttack instances
 
-        # Particles — visual only, no gameplay effect
-        self.particles = []
+        self._on_zone_loaded()
 
         # Wind — drifts slowly toward a random target strength
         self.wind          = 0.0
@@ -166,13 +175,26 @@ class Engine:
                     self.pause_menu.handle_event(event)
                     continue
 
+                # Inventory screen intercepts while open
+                if self.inventory_screen.open:
+                    action = self.inventory_screen.handle_event(event)
+                    if action == "use":
+                        self._use_inventory_slot(self.inventory_screen.cursor_slot)
+                    elif action == "drop":
+                        self._drop_inventory_slot(self.inventory_screen.cursor_slot)
+                    continue
+
                 if event.key == pygame.K_ESCAPE:
                     if self.crafting_menu.open:
                         self.crafting_menu.close()
                     elif self.dialogue_box.open:
-                        pass   # E closes dialogue; Esc intentionally does nothing here
+                        pass
                     else:
                         self.pause_menu.toggle()
+
+                elif event.key == pygame.K_i:
+                    if not self.crafting_menu.open and not self.dialogue_box.open:
+                        self.inventory_screen.toggle()
 
                 elif event.key == pygame.K_c:
                     if not self.dialogue_box.open:
@@ -195,6 +217,14 @@ class Engine:
                     if not self.crafting_menu.open and not self.dialogue_box.open:
                         self._start_aim()
 
+                elif event.key == pygame.K_q:
+                    if not self.crafting_menu.open and not self.dialogue_box.open:
+                        self._fire_ability(0)
+
+                elif event.key == pygame.K_r:
+                    if not self.crafting_menu.open and not self.dialogue_box.open:
+                        self._fire_ability(1)
+
                 # Forward navigation keys to the crafting menu while it's open
                 if self.crafting_menu.open:
                     self.crafting_menu.handle_event(event)
@@ -210,7 +240,8 @@ class Engine:
             return
 
         # Pause all world simulation while any overlay is open
-        if self.pause_menu.open or self.crafting_menu.open or self.dialogue_box.open:
+        if (self.pause_menu.open or self.crafting_menu.open
+                or self.dialogue_box.open or self.inventory_screen.open):
             return
 
         self._update_wind(dt)
@@ -223,6 +254,7 @@ class Engine:
         self._update_save_points(dt)
         self._update_zone_exits()
         self._update_particles(dt)
+        self._update_active_attacks(dt)
         self._update_wind_streaks(dt)
         self.camera.update(self.player.rect, dt)
 
@@ -307,6 +339,11 @@ class Engine:
                     and hitbox.rect.colliderect(enemy.rect)):
                 enemy.take_damage(hitbox.damage)
                 hitbox.already_hit.add(enemy)
+                if hitbox.knockback > 0:
+                    sign = 1 if enemy.rect.centerx >= self.player.rect.centerx else -1
+                    enemy.velocity.x = hitbox.knockback * sign
+                if hitbox.status_def:
+                    apply_status(enemy, hitbox.status_def)
                 _assets().play("enemy_hit")
                 self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 6)
         if hitbox.expired:
@@ -362,6 +399,8 @@ class Engine:
         self.player.active_hitbox = None   # cancel any in-flight swing
         self.player.aiming        = False
         self.projectiles.clear()
+        self.active_attacks.clear()
+        self.particles.clear()
 
         # Pre-warm save point overlap so touching the spawn save point doesn't flash
         for sp in self.save_points:
@@ -369,6 +408,26 @@ class Engine:
 
         _assets().play("zone_transition")
         self._on_zone_loaded()
+
+    def _fire_ability(self, slot_idx: int):
+        """Fire the ability assigned to slot 0 (Q) or 1 (R)."""
+        ability_id = self.player.ability_slots[slot_idx]
+        if not ability_id:
+            return
+        if self.player.ability_cooldowns[slot_idx] > 0:
+            return
+        if self.ability_system.execute(ability_id, self.player, self):
+            ab = self.ability_system.get(ability_id)
+            if ab:
+                self.player.ability_cooldowns[slot_idx] = ab.get("cooldown", 0.0)
+                sound = ab.get("sound")
+                if sound:
+                    _assets().play(sound)
+
+    def _update_active_attacks(self, dt):
+        for attack in self.active_attacks:
+            attack.update(dt, self.platforms, self.enemies, self.player)
+        self.active_attacks[:] = [a for a in self.active_attacks if a.alive]
 
     def _on_zone_loaded(self):
         """Called whenever the active zone changes — starts zone music if defined."""
@@ -436,11 +495,11 @@ class Engine:
             if not proj.alive:
                 continue
             for enemy in self.enemies:
-                if enemy not in proj.already_hit and proj.rect.colliderect(enemy.rect):
-                    enemy.take_damage(proj.damage)
-                    proj.already_hit.add(enemy)
-                    proj.alive = False
-                    break
+                if proj.rect.colliderect(enemy.rect):
+                    if proj.hit(enemy):
+                        self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 4)
+                    if not proj.alive:
+                        break
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
 
     def _start_aim(self):
@@ -465,19 +524,42 @@ class Engine:
         self.projectiles.append(Projectile(x, y, vx, vy, ARROW_DAMAGE))
 
     def _use_hotbar_item(self):
-        """Consume one of the selected hotbar item and apply its use effect."""
-        slot_idx = self.player.hotbar_slot
-        slot     = self.player.inventory.slots[slot_idx]
+        """Use the selected hotbar item."""
+        self._use_inventory_slot(self.player.hotbar_slot)
+
+    def _use_inventory_slot(self, slot_idx: int):
+        """Consume one of the item in slot_idx and apply its use effect."""
+        slot = self.player.inventory.slots[slot_idx]
         if not slot:
             return
         item_def = self.player.inventory.item_defs.get(slot.item_id, {})
         use = item_def.get("use")
         if use == "heal":
             if self.player.health >= self.player.max_health:
-                return   # already full — don't waste the potion
+                return
             heal = item_def.get("heal_amount", 0)
             self.player.health = min(self.player.max_health, self.player.health + heal)
             self.player.inventory.remove(slot_idx, 1)
+        elif use == "equip_ability":
+            ability_id = item_def.get("ability_id")
+            if ability_id:
+                # Assign to first empty ability slot, or slot 0 if both full
+                idx = 0 if self.player.ability_slots[0] is None else 1
+                self.player.ability_slots[idx] = ability_id
+                self.player.inventory.remove(slot_idx, 1)
+                _assets().play("ui_confirm")
+
+    def _drop_inventory_slot(self, slot_idx: int):
+        """Drop the item in slot_idx at the player's feet."""
+        slot = self.player.inventory.slots[slot_idx]
+        if not slot:
+            return
+        item_defs = self.player.inventory.item_defs
+        color = tuple(item_defs.get(slot.item_id, {}).get("color", [200, 200, 200]))
+        x = self.player.rect.centerx - ItemDrop.SIZE // 2
+        y = self.player.rect.bottom  - ItemDrop.SIZE
+        self.item_drops.append(ItemDrop(x, y, slot.item_id, slot.quantity, color))
+        self.player.inventory.slots[slot_idx] = None
 
     def _respawn(self):
         """Reload from save file and restore the world to its saved state."""
@@ -487,6 +569,7 @@ class Engine:
         self.crafting_menu.close()
         self.dialogue_box.close()
         self.pause_menu.close()
+        self.inventory_screen.close()
 
         save_data = load_game()
         zone_id   = save_data.get("zone", "zone_01") if save_data else self.world.zone_id
@@ -506,6 +589,7 @@ class Engine:
             px = player_data.get("x", self.world.spawn[0])
             py = player_data.get("y", self.world.spawn[1])
             self.player.health = player_data.get("health", self.player.max_health)
+            self.player.mana   = float(player_data.get("mana", self.player.max_mana))
             inv_data = player_data.get("inventory")
             if inv_data:
                 self.player.inventory.load_slots(inv_data)
@@ -526,6 +610,8 @@ class Engine:
         self.player.active_hitbox = None
         self.player.aiming        = False
         self.projectiles.clear()
+        self.active_attacks.clear()
+        self.particles.clear()
 
         # Filter already-collected zone drops
         already = self.collected_zone_drops.get(zone_id, set())
@@ -615,6 +701,10 @@ class Engine:
         if self.player.aiming:
             self._draw_aim_indicator()
 
+        # Draw special attacks (wave, area, aura)
+        for attack in self.active_attacks:
+            attack.draw(self.screen, self.camera)
+
         # Draw particles (world-space, fading color + shrinking radius)
         for p in self.particles:
             sx, sy = self.camera.world_to_screen(p.pos.x, p.pos.y)
@@ -646,6 +736,9 @@ class Engine:
 
         # Dialogue box — drawn over everything when open
         self.dialogue_box.draw(self.screen)
+
+        # Inventory screen — drawn over HUD
+        self.inventory_screen.draw(self.screen)
 
         # Pause menu — drawn over dialogue (Esc can't open it while dialogue is active)
         self.pause_menu.draw(self.screen)

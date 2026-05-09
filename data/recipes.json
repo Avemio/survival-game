@@ -10,5 +10,35 @@
     "result":      "health_potion",
     "count":       1,
     "ingredients": { "herb": 2 }
+  },
+  "arrow": {
+    "name":        "Arrow",
+    "result":      "arrow",
+    "count":       5,
+    "ingredients": { "wood": 2, "stone": 1 }
+  },
+  "bow": {
+    "name":        "Bow",
+    "result":      "bow",
+    "count":       1,
+    "ingredients": { "plank": 3, "herb": 1 }
+  },
+  "stone_sword": {
+    "name":        "Stone Sword",
+    "result":      "stone_sword",
+    "count":       1,
+    "ingredients": { "stone": 5, "plank": 2 }
+  },
+  "fireball_scroll": {
+    "name":        "Fireball Scroll",
+    "result":      "ability_fireball",
+    "count":       1,
+    "ingredients": { "herb": 3, "stone": 2 }
+  },
+  "earthquake_scroll": {
+    "name":        "Earthquake Scroll",
+    "result":      "ability_earthquake",
+    "count":       1,
+    "ingredients": { "stone": 5, "herb": 2 }
   }
 }

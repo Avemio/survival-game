@@ -1,6 +1,7 @@
 {
   "id": "zone_02",
   "spawn": [200, 596],
+  "bg_color": [22, 22, 35],
   "platforms": [
     {"x": 0,    "y": 660, "w": 10000, "h": 60, "label": "ground"},
 
@@ -30,27 +31,30 @@
   ],
   "enemies": [
     {"type": "basic", "x": 300,  "y": 600},
-    {"type": "basic", "x": 1100, "y": 600},
+    {"type": "fast",  "x": 600,  "y": 600},
+    {"type": "heavy", "x": 1100, "y": 600},
     {"type": "basic", "x": 1150, "y": 515},
-    {"type": "basic", "x": 1600, "y": 600},
+    {"type": "fast",  "x": 1600, "y": 600},
     {"type": "basic", "x": 2400, "y": 600},
-    {"type": "basic", "x": 2650, "y": 425},
-    {"type": "basic", "x": 3050, "y": 600},
-    {"type": "basic", "x": 3600, "y": 600},
+    {"type": "heavy", "x": 2650, "y": 425},
+    {"type": "fast",  "x": 3050, "y": 600},
+    {"type": "heavy", "x": 3600, "y": 600},
     {"type": "basic", "x": 4070, "y": 425},
-    {"type": "basic", "x": 4300, "y": 600}
+    {"type": "fast",  "x": 4300, "y": 600}
   ],
   "save_points": [
     {"x": 50,   "y": 596, "w": 60, "h": 64},
     {"x": 1050, "y": 596, "w": 60, "h": 64}
   ],
   "item_drops": [
-    {"item_id": "herb",         "quantity": 3,  "x": 220,  "y": 640},
-    {"item_id": "stone",        "quantity": 5,  "x": 2020, "y": 195},
-    {"item_id": "arrow",        "quantity": 15, "x": 2200, "y": 285},
-    {"item_id": "wood",         "quantity": 4,  "x": 3380, "y": 375},
-    {"item_id": "health_potion","quantity": 1,  "x": 3600, "y": 285},
-    {"item_id": "arrow",        "quantity": 10, "x": 4300, "y": 555}
+    {"item_id": "herb",               "quantity": 3,  "x": 220,  "y": 640},
+    {"item_id": "stone",              "quantity": 5,  "x": 2020, "y": 195},
+    {"item_id": "arrow",              "quantity": 15, "x": 2200, "y": 285},
+    {"item_id": "ability_earthquake", "quantity": 1,  "x": 2010, "y": 195},
+    {"item_id": "wood",               "quantity": 4,  "x": 3380, "y": 375},
+    {"item_id": "ability_poison_cloud","quantity": 1,  "x": 3600, "y": 285},
+    {"item_id": "health_potion",      "quantity": 1,  "x": 3610, "y": 285},
+    {"item_id": "arrow",              "quantity": 10, "x": 4300, "y": 555}
   ],
   "npcs": [
     {"type": "guard", "dialogue_id": "guard_01", "x": 700, "y": 608}

@@ -1,7 +1,7 @@
 """
 ui/hud.py
 Heads-up display — drawn in screen space every frame on top of the world.
-Owns: health bar, hotbar slots (reads inventory from player).
+Owns: health bar, mana bar, hotbar slots, ability slots (Q/R), wind indicator.
 Does NOT own: player state (reads it), camera (screen space only).
 
 All surfaces and fonts are created once at init — never inside draw().
@@ -14,16 +14,20 @@ from game.settings import (
     HUD_HEALTH_BG, HUD_HEALTH_FG, HUD_HEALTH_BORDER,
     HOTBAR_SLOTS, HOTBAR_SLOT_SIZE, HOTBAR_SLOT_GAP, HOTBAR_Y_OFFSET,
     HOTBAR_BG, HOTBAR_BORDER, HOTBAR_SELECTED,
-    WIND_MAX, WHITE
+    MANA_BAR_H, MANA_BAR_BG, MANA_BAR_FG, MANA_BAR_BORDER,
+    ABILITY_SLOT_SIZE,
+    WIND_MAX, WHITE,
+    STATUS_COLORS,
 )
 
-_ITEM_MARGIN = 6   # pixels between slot edge and item icon
+_ITEM_MARGIN = 6
+_WIND_BAR_W  = 100
+_WIND_BAR_H  = 8
+_WIND_HUD_X  = SCREEN_WIDTH - 130
+_WIND_HUD_Y  = 20
 
-
-_WIND_BAR_W    = 100   # total width of the wind gauge track
-_WIND_BAR_H    = 8     # height of the gauge bar
-_WIND_HUD_X    = SCREEN_WIDTH - 130   # top-right area
-_WIND_HUD_Y    = 20
+_MANA_BAR_X = HUD_HEALTH_X
+_MANA_BAR_Y = HUD_HEALTH_Y + HUD_HEALTH_H + 5
 
 
 class HUD:
@@ -33,31 +37,45 @@ class HUD:
         # Fonts — created once here, never in draw()
         self._font      = pygame.font.SysFont(None, 18)
         self._wind_font = pygame.font.SysFont(None, 16)
+        self._num_font  = pygame.font.SysFont(None, 14)
+        self._ab_font   = pygame.font.SysFont(None, 16)
 
-        # Pre-compute hotbar geometry — doesn't change frame to frame
+        # Pre-compute hotbar geometry
         total_w = HOTBAR_SLOTS * HOTBAR_SLOT_SIZE + (HOTBAR_SLOTS - 1) * HOTBAR_SLOT_GAP
         self._hotbar_x = (SCREEN_WIDTH - total_w) // 2
         self._hotbar_y = SCREEN_HEIGHT - HOTBAR_SLOT_SIZE - HOTBAR_Y_OFFSET
 
-        # Pre-rendered static surfaces — static text never changes
+        # Pre-rendered static surfaces
         self._wind_label = self._wind_font.render("WIND", True, (160, 160, 180))
 
-        # Per-slot quantity surface cache: each entry is (quantity, Surface) or None
-        self._qty_cache = [None] * HOTBAR_SLOTS
+        # Hotbar slot number labels (1–8) — static
+        self._slot_nums = [
+            self._num_font.render(str(i + 1), True, (140, 140, 160))
+            for i in range(HOTBAR_SLOTS)
+        ]
 
-        # Arrow count cache: (count, Surface) — re-rendered only when count changes
+        # Ability slot key labels — static
+        self._q_label = self._ab_font.render("Q", True, (200, 200, 220))
+        self._r_label = self._ab_font.render("R", True, (200, 200, 220))
+
+        # Per-slot quantity surface cache: (quantity, Surface) or None
+        self._qty_cache   = [None] * HOTBAR_SLOTS
+
+        # Arrow count cache: (count, Surface)
         self._arrow_cache = (-1, None)
 
     # ------------------------------------------------------------------
-    # Draw (called by engine each frame, after all world drawing)
+    # Draw
     # ------------------------------------------------------------------
 
     def draw(self, screen, wind=0.0):
         self._draw_health_bar(screen)
+        self._draw_mana_bar(screen)
         self._draw_hotbar(screen)
+        self._draw_ability_slots(screen)
         self._draw_wind(screen, wind)
-        if self.player.aiming:
-            self._draw_arrow_count(screen)
+        self._draw_arrow_count(screen)
+        self._draw_status_effects(screen)
 
     # ------------------------------------------------------------------
     # Health bar
@@ -65,15 +83,25 @@ class HUD:
 
     def _draw_health_bar(self, screen):
         x, y, w, h = HUD_HEALTH_X, HUD_HEALTH_Y, HUD_HEALTH_W, HUD_HEALTH_H
-
         pygame.draw.rect(screen, HUD_HEALTH_BG, (x, y, w, h))
-
-        ratio  = max(0, self.player.health / self.player.max_health)
+        ratio = max(0, self.player.health / self.player.max_health)
         fill_w = int(w * ratio)
         if fill_w > 0:
             pygame.draw.rect(screen, HUD_HEALTH_FG, (x, y, fill_w, h))
-
         pygame.draw.rect(screen, HUD_HEALTH_BORDER, (x, y, w, h), 2)
+
+    # ------------------------------------------------------------------
+    # Mana bar
+    # ------------------------------------------------------------------
+
+    def _draw_mana_bar(self, screen):
+        x, y, w, h = _MANA_BAR_X, _MANA_BAR_Y, HUD_HEALTH_W, MANA_BAR_H
+        pygame.draw.rect(screen, MANA_BAR_BG, (x, y, w, h))
+        ratio = max(0, self.player.mana / self.player.max_mana)
+        fill_w = int(w * ratio)
+        if fill_w > 0:
+            pygame.draw.rect(screen, MANA_BAR_FG, (x, y, fill_w, h))
+        pygame.draw.rect(screen, MANA_BAR_BORDER, (x, y, w, h), 1)
 
     # ------------------------------------------------------------------
     # Hotbar
@@ -87,24 +115,21 @@ class HUD:
             slot_y = self._hotbar_y
             rect   = (slot_x, slot_y, HOTBAR_SLOT_SIZE, HOTBAR_SLOT_SIZE)
 
-            # Slot background
             pygame.draw.rect(screen, HOTBAR_BG, rect)
 
-            # Item icon + quantity
+            # Slot number (top-left)
+            screen.blit(self._slot_nums[i], (slot_x + 3, slot_y + 2))
+
             item = inv.slots[i]
             if item:
                 item_def = inv.get_def(item.item_id)
                 color    = tuple(item_def.get("color", [200, 200, 200]))
-
-                # Colored square with margin inside the slot
                 pygame.draw.rect(screen, color, (
                     slot_x + _ITEM_MARGIN,
                     slot_y + _ITEM_MARGIN,
                     HOTBAR_SLOT_SIZE - _ITEM_MARGIN * 2,
-                    HOTBAR_SLOT_SIZE - _ITEM_MARGIN * 2
+                    HOTBAR_SLOT_SIZE - _ITEM_MARGIN * 2,
                 ))
-
-                # Quantity in bottom-right — only show if > 1
                 if item.quantity > 1:
                     cache = self._qty_cache[i]
                     if cache is None or cache[0] != item.quantity:
@@ -113,12 +138,53 @@ class HUD:
                     qty_surf = self._qty_cache[i][1]
                     screen.blit(qty_surf, (
                         slot_x + HOTBAR_SLOT_SIZE - qty_surf.get_width()  - 3,
-                        slot_y + HOTBAR_SLOT_SIZE - qty_surf.get_height() - 2
+                        slot_y + HOTBAR_SLOT_SIZE - qty_surf.get_height() - 2,
                     ))
 
-            # Border — yellow for selected, grey otherwise
             border_color = HOTBAR_SELECTED if i == self.player.hotbar_slot else HOTBAR_BORDER
             pygame.draw.rect(screen, border_color, rect, 2)
+
+    # ------------------------------------------------------------------
+    # Ability slots (Q / R) — shown to the left of hotbar
+    # ------------------------------------------------------------------
+
+    def _draw_ability_slots(self, screen):
+        ab_y   = self._hotbar_y + (HOTBAR_SLOT_SIZE - ABILITY_SLOT_SIZE) // 2
+        gap    = 6
+        ab_x_r = self._hotbar_x - ABILITY_SLOT_SIZE - gap          # R slot
+        ab_x_q = ab_x_r       - ABILITY_SLOT_SIZE - gap // 2       # Q slot
+
+        for slot_idx, ab_x, label_surf in [
+            (0, ab_x_q, self._q_label),
+            (1, ab_x_r, self._r_label),
+        ]:
+            rect   = (ab_x, ab_y, ABILITY_SLOT_SIZE, ABILITY_SLOT_SIZE)
+            pygame.draw.rect(screen, (30, 30, 45), rect)
+
+            ability_id = self.player.ability_slots[slot_idx]
+            if ability_id:
+                # Short name truncated
+                name = ability_id.replace("_", " ")[:8]
+                ns   = self._ab_font.render(name, True, (180, 200, 255))
+                screen.blit(ns, (
+                    ab_x + (ABILITY_SLOT_SIZE - ns.get_width())  // 2,
+                    ab_y + (ABILITY_SLOT_SIZE - ns.get_height()) // 2,
+                ))
+                # Cooldown overlay
+                cd = self.player.ability_cooldowns[slot_idx]
+                if cd > 0:
+                    from game.systems.abilities import AbilitySystem
+                    # Draw grey dim proportional to cooldown remaining
+                    max_cd = 5.0  # rough estimate for overlay height
+                    overlay_h = int(ABILITY_SLOT_SIZE * min(1.0, cd / max_cd))
+                    overlay   = pygame.Surface((ABILITY_SLOT_SIZE, overlay_h))
+                    overlay.set_alpha(140)
+                    overlay.fill((0, 0, 0))
+                    screen.blit(overlay, (ab_x, ab_y + ABILITY_SLOT_SIZE - overlay_h))
+
+            # Key label at top-left, border
+            screen.blit(label_surf, (ab_x + 3, ab_y + 2))
+            pygame.draw.rect(screen, (80, 80, 120), rect, 1)
 
     # ------------------------------------------------------------------
     # Wind indicator
@@ -126,42 +192,53 @@ class HUD:
 
     def _draw_wind(self, screen, wind):
         x, y = _WIND_HUD_X, _WIND_HUD_Y
-
-        # Label — pre-rendered at init
         screen.blit(self._wind_label, (x, y))
         y += self._wind_label.get_height() + 3
 
-        # Track background
         pygame.draw.rect(screen, (50, 50, 60), (x, y, _WIND_BAR_W, _WIND_BAR_H))
 
-        # Filled portion — center-out in wind direction
         ratio    = max(-1.0, min(1.0, wind / WIND_MAX))
         center_x = x + _WIND_BAR_W // 2
         fill_w   = int(abs(ratio) * (_WIND_BAR_W // 2))
 
-        if ratio > 0:   # wind blows right
-            bar_x = center_x
-            color = (220, 180, 80)
-        elif ratio < 0: # wind blows left
-            bar_x = center_x - fill_w
-            color = (100, 180, 220)
+        if ratio > 0:
+            bar_x, color = center_x, (220, 180, 80)
+        elif ratio < 0:
+            bar_x, color = center_x - fill_w, (100, 180, 220)
         else:
             bar_x, fill_w, color = center_x, 0, (160, 160, 180)
 
         if fill_w > 0:
             pygame.draw.rect(screen, color, (bar_x, y, fill_w, _WIND_BAR_H))
 
-        # Center divider + outline
         pygame.draw.rect(screen, (100, 100, 120), (x, y, _WIND_BAR_W, _WIND_BAR_H), 1)
         pygame.draw.line(screen, (100, 100, 120), (center_x, y), (center_x, y + _WIND_BAR_H))
 
     # ------------------------------------------------------------------
-    # Arrow count (shown while aiming)
+    # Arrow count — always shown if player has bow + arrows
     # ------------------------------------------------------------------
 
     def _draw_arrow_count(self, screen):
-        count = self.player.inventory.count("arrow")
+        inv = self.player.inventory
+        has_bow = inv.count("bow") > 0
+        if not has_bow:
+            return
+        count = inv.count("arrow")
         if count != self._arrow_cache[0]:
             surf = self._wind_font.render(f"Arrows: {count}", True, (220, 200, 120))
             self._arrow_cache = (count, surf)
         screen.blit(self._arrow_cache[1], (_WIND_HUD_X, _WIND_HUD_Y + 28))
+
+    # ------------------------------------------------------------------
+    # Status effect icons (top of health bar)
+    # ------------------------------------------------------------------
+
+    def _draw_status_effects(self, screen):
+        effects = self.player.status_effects
+        if not effects:
+            return
+        px = HUD_HEALTH_X + HUD_HEALTH_W + 8
+        for effect in effects:
+            color = STATUS_COLORS.get(effect.type, (200, 200, 200))
+            pygame.draw.circle(screen, color, (px + 5, HUD_HEALTH_Y + HUD_HEALTH_H // 2), 5)
+            px += 14

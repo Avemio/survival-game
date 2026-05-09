@@ -142,11 +142,35 @@ HOTBAR_SELECTED    = (220, 200, 80)   # yellow — selected slot highlight
 VOLUME       = 0.8   # sound effect volume (0.0 – 1.0)
 MUSIC_VOLUME = 0.5   # music volume (0.0 – 1.0)
 
+# Inventory
+INVENTORY_SLOTS = 32  # total slots; hotbar shows first HOTBAR_SLOTS of these
+
+# Mana / ability system
+PLAYER_MAX_MANA = 100
+MANA_REGEN_RATE = 5.0    # mana per second
+MANA_BAR_H      = 12
+MANA_BAR_BG     = (20,  20,  80)
+MANA_BAR_FG     = (60, 120, 255)
+MANA_BAR_BORDER = (100, 140, 255)
+
+# Ability slot HUD (Q / R slots displayed next to hotbar)
+ABILITY_SLOT_SIZE = 40
+
+# Status effect colors (used by HUD flash)
+STATUS_COLORS = {
+    "poison": (80,  200, 80),
+    "burn":   (255, 120, 20),
+    "stun":   (255, 255, 80),
+    "freeze": (120, 200, 255),
+    "slow":   (150, 100, 200),
+}
+
 # ------------------------------------------------------------------
 # config.json override — applied last so user settings win
 # ------------------------------------------------------------------
 import json as _json
 from pathlib import Path as _Path
+_cfg = {}   # ensure always defined so del below never fails
 try:
     _cfg = _json.loads((_Path(__file__).parent.parent / "config.json").read_text())
     _res = _cfg.get("resolution")
@@ -159,7 +183,6 @@ try:
         VOLUME = float(_cfg["volume"])
     if "music_volume" in _cfg:
         MUSIC_VOLUME = float(_cfg["music_volume"])
-    del _cfg, _res
 except Exception:
     pass
-del _json, _Path
+del _cfg, _json, _Path

@@ -1,0 +1,188 @@
+{
+  "basic_swing": {
+    "type":        "melee",
+    "name":        "Basic Swing",
+    "damage":      25,
+    "width":       55,
+    "height":      64,
+    "duration":    0.18,
+    "cooldown":    0.45,
+    "knockback":   0,
+    "sound":       "attack_swing"
+  },
+
+  "wave_slash": {
+    "type":         "wave",
+    "name":         "Wave Slash",
+    "damage":       35,
+    "speed":        320,
+    "max_distance": 480,
+    "height":       50,
+    "color":        [80, 180, 255],
+    "sound":        "attack_swing"
+  },
+
+  "heavy_slash": {
+    "type":        "melee",
+    "name":        "Heavy Slash",
+    "damage":      55,
+    "width":       80,
+    "height":      80,
+    "duration":    0.30,
+    "cooldown":    1.4,
+    "knockback":   220,
+    "color":       [255, 200, 50],
+    "sound":       "attack_swing"
+  },
+
+  "poison_blade": {
+    "type":         "melee",
+    "name":         "Poison Blade",
+    "damage":       18,
+    "width":        60,
+    "height":       64,
+    "duration":     0.22,
+    "cooldown":     0.9,
+    "knockback":    60,
+    "status_effect": {"type": "poison", "duration": 5.0, "damage_per_second": 10},
+    "color":        [80, 200, 80],
+    "sound":        "attack_swing"
+  },
+
+  "fireball": {
+    "type":         "projectile",
+    "name":         "Fireball",
+    "damage":       40,
+    "speed":        420,
+    "gravity":      120,
+    "wind_affected": false,
+    "width":        18,
+    "height":       18,
+    "pierce":       false,
+    "mana_cost":    30,
+    "status_effect": {"type": "burn", "duration": 3.5, "damage_per_second": 12},
+    "color":        [255, 120, 20],
+    "sound":        "fireball"
+  },
+
+  "ice_lance": {
+    "type":         "projectile",
+    "name":         "Ice Lance",
+    "damage":       25,
+    "speed":        640,
+    "gravity":      0,
+    "wind_affected": false,
+    "width":        26,
+    "height":       8,
+    "pierce":       true,
+    "mana_cost":    28,
+    "status_effect": {"type": "freeze", "duration": 2.0},
+    "color":        [120, 200, 255],
+    "sound":        "ice_lance"
+  },
+
+  "poison_arrow": {
+    "type":         "projectile",
+    "name":         "Poison Arrow",
+    "damage":       12,
+    "speed":        480,
+    "gravity":      550,
+    "wind_affected": true,
+    "width":        14,
+    "height":       4,
+    "pierce":       false,
+    "mana_cost":    20,
+    "requires_item": "bow",
+    "consumes_item": "arrow",
+    "status_effect": {"type": "poison", "duration": 5.0, "damage_per_second": 12},
+    "color":        [80, 200, 80],
+    "sound":        "arrow_fire"
+  },
+
+  "earthquake": {
+    "type":         "wave",
+    "name":         "Earthquake",
+    "damage":       45,
+    "speed":        280,
+    "max_distance": 700,
+    "height":       35,
+    "mana_cost":    45,
+    "status_effect": {"type": "stun", "duration": 1.8},
+    "color":        [180, 130, 60],
+    "sound":        "earthquake"
+  },
+
+  "lightning_strike": {
+    "type":           "area",
+    "name":           "Lightning Strike",
+    "damage":         65,
+    "radius":         90,
+    "duration":       0.35,
+    "visual_duration": 0.35,
+    "mana_cost":      55,
+    "status_effect": {"type": "stun", "duration": 2.0},
+    "color":          [200, 200, 255],
+    "sound":          "lightning"
+  },
+
+  "poison_cloud": {
+    "type":              "aura",
+    "name":              "Poison Cloud",
+    "damage_per_second": 12,
+    "radius":            110,
+    "duration":          5.0,
+    "mana_cost":         40,
+    "status_effect":     {"type": "poison", "duration": 4.0, "damage_per_second": 10},
+    "color":             [80, 200, 80],
+    "sound":             "poison_cloud"
+  },
+
+  "frost_nova": {
+    "type":           "area",
+    "name":           "Frost Nova",
+    "damage":         20,
+    "radius":         120,
+    "duration":       0.5,
+    "visual_duration": 0.5,
+    "mana_cost":      50,
+    "status_effect":  {"type": "freeze", "duration": 2.5},
+    "color":          [120, 200, 255],
+    "sound":          "ice_lance"
+  },
+
+  "slow_field": {
+    "type":              "aura",
+    "name":              "Slow Field",
+    "damage_per_second": 5,
+    "radius":            130,
+    "duration":          6.0,
+    "mana_cost":         30,
+    "status_effect":     {"type": "slow", "duration": 2.0, "slow_factor": 0.35},
+    "color":             [150, 100, 200],
+    "sound":             "poison_cloud"
+  },
+
+  "boss_wave": {
+    "type":         "wave",
+    "name":         "Boss Shockwave",
+    "damage":       60,
+    "speed":        400,
+    "max_distance": 900,
+    "height":       55,
+    "status_effect": {"type": "stun", "duration": 1.5},
+    "color":        [255, 80, 80],
+    "sound":        "earthquake"
+  },
+
+  "boss_slam": {
+    "type":           "area",
+    "name":           "Boss Slam",
+    "damage":         80,
+    "radius":         140,
+    "duration":       0.6,
+    "visual_duration": 0.6,
+    "status_effect":  {"type": "stun", "duration": 2.5},
+    "color":          [255, 60, 60],
+    "sound":          "earthquake"
+  }
+}

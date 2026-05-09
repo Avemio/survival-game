@@ -70,3 +70,16 @@
 | File | Purpose |
 |------|---------|
 | `systems/assets.py` | AssetManager singleton — loads sprites + sounds, plays SFX and music, falls back silently |
+| `systems/effects.py` | StatusEffect system — poison, burn, stun, freeze, slow; tick_all() applied to entities each frame |
+| `systems/active_attacks.py` | Special attack objects — WaveAttack, AreaAttack, AuraAttack; updated and drawn by engine |
+| `systems/abilities.py` | AbilitySystem — reads abilities.json, dispatches to correct attack type, handles mana/item costs |
+
+## ui/ (additional)
+| File | Purpose |
+|------|---------|
+| `ui/inventory_screen.py` | 32-slot grid inventory (I key) — keyboard nav, use/drop items, hotbar mirrors first 8 slots |
+
+## data/ (additional)
+| File | Purpose |
+|------|---------|
+| `data/abilities.json` | All ability definitions — type, damage, status_effect, mana_cost, cooldown, color, sound |

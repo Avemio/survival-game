@@ -39,6 +39,9 @@ class AssetManager:
     # ------------------------------------------------------------------
 
     def _load_sprites(self):
+        # convert_alpha() requires an active display surface
+        if not pygame.display.get_surface():
+            return
         folder = _ASSETS_DIR / "sprites"
         if not folder.exists():
             return

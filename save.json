@@ -1,0 +1,46 @@
+{
+  "zone": "zone_02",
+  "player": {
+    "x": 106,
+    "y": 596,
+    "health": 100,
+    "inventory": [
+      {
+        "item_id": "bow",
+        "quantity": 1
+      },
+      {
+        "item_id": "arrow",
+        "quantity": 15
+      },
+      {
+        "item_id": "stone",
+        "quantity": 8
+      },
+      {
+        "item_id": "wood",
+        "quantity": 16
+      },
+      {
+        "item_id": "herb",
+        "quantity": 9
+      },
+      null,
+      null,
+      null
+    ]
+  },
+  "collected_zone_drops": {
+    "zone_01": [
+      0,
+      1,
+      2,
+      4,
+      5,
+      6
+    ],
+    "zone_02": [
+      0
+    ]
+  }
+}
