@@ -15,26 +15,27 @@ from game.settings import (
 )
 
 _PANEL_W  = 500
-_PANEL_H  = 444   # 13 rows × 26px + title + footer
+_PANEL_H  = 470   # 14 rows × 26px + title + footer
 _PADDING  = 24
 _TITLE_H  = 52   # y-offset from panel top to the divider under "PAUSED"
 _ROW_H    = 26   # height per control row
 _COL_KEY  = 200  # x-offset from panel left (after padding) to key column
 
 _CONTROLS = [
-    ("Move",           "WASD  /  Arrow Keys"),
-    ("Jump",           "W  /  Space  /  Up"),
-    ("Attack",         "Z"),
-    ("Ability Q",      "Q"),
-    ("Ability R",      "R"),
-    ("Draw Bow",       "Hold X    (release to fire)"),
-    ("Aim Bow",        "Up / Down  while drawing"),
-    ("Use Item",       "F"),
-    ("Hotbar Slot",    "1 – 8"),
-    ("Inventory",      "I"),
-    ("Talk / Advance", "E"),
-    ("Crafting Menu",  "C"),
-    ("Pause",          "Esc"),
+    ("Move",              "WASD  /  Arrow Keys"),
+    ("Jump",              "W  /  Space  /  Up"),
+    ("Attack",            "Z"),
+    ("Ability Q / R",     "Q  /  R"),
+    ("Draw Bow",          "Hold X    (release to fire)"),
+    ("Aim Bow",           "Up / Down  while drawing"),
+    ("Use Item",          "F"),
+    ("Hotbar Slot",       "1 – 8"),
+    ("Inventory",         "I"),
+    ("Quest Log",         "J"),
+    ("Talk / Shop / Open","E"),
+    ("Crafting Menu",     "C"),
+    ("Shop: Switch Mode", "Tab  (while shop is open)"),
+    ("Pause",             "Esc"),
 ]
 
 

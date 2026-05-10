@@ -91,7 +91,8 @@ class Engine:
         # Per-zone chest log: {zone_id: set of int indices already opened}
         self.opened_zone_chests   = {}
 
-        self.player = Player(*self.world.spawn)
+        self.player       = Player(*self.world.spawn)
+        self.quest_system = QuestSystem()   # created early so save loading can call .load()
 
         # Apply saved player state if a save exists
         if save_data:
@@ -138,7 +139,6 @@ class Engine:
         self.inventory_screen = InventoryScreen(self.player)
         self.shop_system      = ShopSystem()
         self.shop_menu        = ShopMenu(self.player, self.shop_system)
-        self.quest_system     = QuestSystem()
         self.quest_log        = QuestLog(self.quest_system)
 
         # Title screen — always shown first on startup

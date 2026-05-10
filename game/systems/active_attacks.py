@@ -180,6 +180,13 @@ class AuraAttack(_AttackBase):
         self._tick_rate = 0.5   # apply damage every 0.5 s
         self._tick      = self._tick_rate  # first tick after one full interval, not immediately
 
+        # Pre-allocate SRCALPHA surface for semi-transparent rendering (avoids per-frame alloc)
+        r = int(self.radius)
+        sz = r * 2 + 6
+        self._surf   = pygame.Surface((sz, sz), pygame.SRCALPHA)
+        self._surf_r = r
+        self._surf_c = (sz // 2, sz // 2)   # center of surface
+
     def _in_radius(self, center) -> bool:
         cx = self.owner.rect.centerx
         cy = self.owner.rect.centery
@@ -207,12 +214,21 @@ class AuraAttack(_AttackBase):
         cx = self.owner.rect.centerx
         cy = self.owner.rect.centery
         sx, sy = camera.world_to_screen(cx, cy)
-        ratio  = self.timer / self.max_timer
-        r      = int(self.radius)
-        # Pulsing fill
-        pulse  = 0.3 + 0.2 * abs(math.sin(self.timer * 3))
-        color  = tuple(int(c * pulse) for c in self.color)
-        pygame.draw.circle(screen, color, (sx, sy), r)
-        # Bright ring
-        edge_color = tuple(min(255, int(c * 0.8)) for c in self.color)
-        pygame.draw.circle(screen, edge_color, (sx, sy), r, 2)
+        r     = self._surf_r
+        ctr   = self._surf_c
+        pulse = 0.3 + 0.2 * abs(math.sin(self.timer * 3))
+
+        # Clear to fully transparent, then draw with alpha onto the pre-allocated surface
+        self._surf.fill((0, 0, 0, 0))
+
+        # Semi-transparent fill — alpha ~50-70 so you can see through the cloud
+        fill_alpha = int(45 + 30 * pulse)
+        fill_color = tuple(int(c * pulse) for c in self.color) + (fill_alpha,)
+        pygame.draw.circle(self._surf, fill_color, ctr, r)
+
+        # Brighter pulsing ring — more visible but still not fully opaque
+        ring_alpha = int(120 + 80 * pulse)
+        ring_color = tuple(min(255, int(c * 0.9)) for c in self.color) + (ring_alpha,)
+        pygame.draw.circle(self._surf, ring_color, ctr, r, 3)
+
+        screen.blit(self._surf, (sx - ctr[0], sy - ctr[1]))
