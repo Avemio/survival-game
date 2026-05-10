@@ -1556,53 +1556,166 @@ class ZoneTab(ttk.Frame):
         messagebox.showinfo("Saved",f"Zone saved to:\n{self._zone_path}")
 
 # ---------------------------------------------------------------------------
-# Main application
+# Main application — supports hot-switching between game installations
 # ---------------------------------------------------------------------------
+
+_RECENT_MAX = 8   # number of recent installations to remember
+
+
+def _load_config() -> dict:
+    try:
+        if _CONFIG_FILE.exists():
+            return json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _save_config(cfg: dict) -> None:
+    try:
+        _CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
 
 class EditorApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("Survival Game — Content Editor")
-        self.geometry("1300x820"); self.minsize(960,640)
-        style=ttk.Style(self)
+        self.geometry("1300x820"); self.minsize(960, 640)
+        style = ttk.Style(self)
         try: style.theme_use("clam")
         except Exception: pass
 
-        nb=ttk.Notebook(self); nb.pack(fill="both",expand=True,padx=4,pady=4)
-        nb.add(EnemyTab(nb),   text="  Enemies  ")
-        nb.add(ItemTab(nb),    text="  Items  ")
-        nb.add(RecipeTab(nb),  text="  Recipes  ")
-        nb.add(NPCTab(nb),     text="  NPCs  ")
-        nb.add(AbilityTab(nb), text="  Abilities  ")
-        nb.add(ShopTab(nb),    text="  Shops  ")
-        nb.add(QuestTab(nb),   text="  Quests  ")
-        nb.add(ZoneTab(nb),    text="  Zone Editor  ")
+        self._nb: ttk.Notebook | None = None
+        self._recent_menu: tk.Menu | None = None
+        self._status_var = tk.StringVar()
 
-        menu=tk.Menu(self); self.config(menu=menu)
-        fm=tk.Menu(menu,tearoff=False); menu.add_cascade(label="File",menu=fm)
-        fm.add_command(label="Change game data folder…", command=self._change_data_dir)
+        self._build_menu()
+        self._build_tabs()
+        self._build_statusbar()
+        self._update_title()
+
+        # Add current path to recent list on first launch
+        _record_recent(str(DATA_DIR))
+
+    # ------------------------------------------------------------------
+    # UI construction
+    # ------------------------------------------------------------------
+
+    def _build_menu(self):
+        menu = tk.Menu(self); self.config(menu=menu)
+
+        fm = tk.Menu(menu, tearoff=False)
+        menu.add_cascade(label="File", menu=fm)
+        fm.add_command(label="Browse for game installation...",
+                       command=self._browse, accelerator="Ctrl+O")
+        self.bind_all("<Control-o>", lambda _: self._browse())
+
+        fm.add_separator()
+        self._recent_menu = tk.Menu(fm, tearoff=False)
+        fm.add_cascade(label="Recent installations", menu=self._recent_menu)
+        self._refresh_recent_menu()
+
         fm.add_separator()
         fm.add_command(label="Exit", command=self.quit)
 
-    def _change_data_dir(self):
-        chosen = filedialog.askdirectory(
-            title="Select game 'data' folder",
-            initialdir=str(DATA_DIR),
-        )
-        if not chosen:
+    def _build_tabs(self):
+        if self._nb:
+            self._nb.destroy()
+        self._nb = ttk.Notebook(self)
+        self._nb.pack(fill="both", expand=True, padx=4, pady=(4, 0))
+        self._nb.add(EnemyTab(self._nb),   text="  Enemies  ")
+        self._nb.add(ItemTab(self._nb),    text="  Items  ")
+        self._nb.add(RecipeTab(self._nb),  text="  Recipes  ")
+        self._nb.add(NPCTab(self._nb),     text="  NPCs  ")
+        self._nb.add(AbilityTab(self._nb), text="  Abilities  ")
+        self._nb.add(ShopTab(self._nb),    text="  Shops  ")
+        self._nb.add(QuestTab(self._nb),   text="  Quests  ")
+        self._nb.add(ZoneTab(self._nb),    text="  Zone Editor  ")
+
+    def _build_statusbar(self):
+        bar = ttk.Frame(self, relief="sunken")
+        bar.pack(fill="x", side="bottom")
+        ttk.Label(bar, textvariable=self._status_var,
+                  anchor="w", padding=(6, 2)).pack(fill="x")
+
+    # ------------------------------------------------------------------
+    # Title + status
+    # ------------------------------------------------------------------
+
+    def _update_title(self):
+        self.title(f"Survival Game Editor  —  {DATA_DIR}")
+        self._status_var.set(f"Data folder: {DATA_DIR}")
+
+    # ------------------------------------------------------------------
+    # Recent installations menu
+    # ------------------------------------------------------------------
+
+    def _refresh_recent_menu(self):
+        self._recent_menu.delete(0, "end")
+        cfg = _load_config()
+        recents = [r for r in cfg.get("recent", []) if Path(r).is_dir()]
+        if not recents:
+            self._recent_menu.add_command(
+                label="(no recent installations)", state="disabled")
             return
-        try:
-            _CONFIG_FILE.write_text(
-                json.dumps({"data_dir": chosen}, indent=2), encoding="utf-8"
-            )
-        except Exception:
-            pass
-        messagebox.showinfo(
-            "Data folder updated",
-            f"Saved:\n{chosen}\n\nRestart the editor to load the new data.",
+        for path in recents:
+            # Mark the currently loaded one
+            marker = "  *" if Path(path) == DATA_DIR else ""
+            label  = f"{path}{marker}"
+            self._recent_menu.add_command(
+                label=label,
+                command=lambda p=path: self._switch_to(p))
+
+    # ------------------------------------------------------------------
+    # Switching installations
+    # ------------------------------------------------------------------
+
+    def _browse(self):
+        chosen = filedialog.askdirectory(
+            title="Select the 'data' folder inside your game installation",
+            initialdir=str(DATA_DIR) if DATA_DIR.exists() else str(Path.home()),
         )
+        if chosen:
+            self._switch_to(chosen)
+
+    def _switch_to(self, new_path: str):
+        global DATA_DIR, ZONES_DIR
+        p = Path(new_path)
+        if not p.is_dir():
+            messagebox.showerror("Not found",
+                                 f"Folder does not exist:\n{new_path}")
+            return
+        # Confirm if it doesn't look like a game data folder
+        if not (p / "enemies.json").exists() and not (p / "items.json").exists():
+            if not messagebox.askyesno(
+                    "Unusual folder",
+                    f"This folder doesn't contain enemies.json or items.json.\n"
+                    f"It may not be a game data folder.\n\n"
+                    f"Switch anyway?\n\n{new_path}"):
+                return
+
+        DATA_DIR  = p
+        ZONES_DIR = p / "zones"
+        _record_recent(new_path)
+        self._build_tabs()          # hot-reload all tabs with new data
+        self._update_title()
+        self._refresh_recent_menu()
+
+
+def _record_recent(path: str) -> None:
+    """Add path to the recent list in the config file (deduped, capped)."""
+    cfg = _load_config()
+    recents: list = cfg.get("recent", [])
+    if path in recents:
+        recents.remove(path)
+    recents.insert(0, path)
+    cfg["recent"]   = recents[:_RECENT_MAX]
+    cfg["data_dir"] = path
+    _save_config(cfg)
+
 
 if __name__ == "__main__":
-    DATA_DIR.mkdir(parents=True,exist_ok=True)
-    ZONES_DIR.mkdir(parents=True,exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ZONES_DIR.mkdir(parents=True, exist_ok=True)
     EditorApp().mainloop()
