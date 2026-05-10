@@ -97,8 +97,12 @@ class ShopSystem:
         shop = self._defs.get(shop_id)
         buy_rate = shop.get("buy_rate", 0.5) if shop else 0.5
         item_def = item_defs.get(item_id, {})
-        base = item_def.get("sell_value", 0)
-        return max(0, int(base * buy_rate))
+        base     = item_def.get("sell_value", 0)
+        if base <= 0:
+            return 0
+        # Guarantee at least 1g for any item with a sell_value > 0;
+        # prevents int(1 * 0.5) = 0 making cheap items permanently unsellable.
+        return max(1, int(base * buy_rate))
 
     def buy_price(self, shop_id: str, item_id: str) -> int | None:
         """Return the buy price for item_id in this shop, or None if not sold."""

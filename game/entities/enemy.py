@@ -91,9 +91,11 @@ class Enemy:
         self.stunned:   bool  = False
         self.slow_factor: float = 1.0
 
-        # Sprite — scaled once at init; None = fall back to colored rect
-        sprite_name  = stats.get("sprite", "enemy_basic")
-        self._sprite = _assets().get_sprite_scaled(sprite_name, w, h)
+        # Sprites — base (facing right) + flipped (facing left)
+        sprite_name      = stats.get("sprite", "enemy_basic")
+        _base            = _assets().get_sprite_scaled(sprite_name, w, h)
+        self._sprite      = _base
+        self._sprite_flip = pygame.transform.flip(_base, True, False) if _base else None
 
     # ------------------------------------------------------------------
     # Damage
@@ -250,7 +252,8 @@ class Enemy:
         r = camera.apply_tuple(self.rect)
         # Sprite used only in the normal state; colored rect handles hit-flash and windup
         if self._sprite and self.hit_flash <= 0 and self.state != EnemyState.ATTACK:
-            screen.blit(self._sprite, (r[0], r[1]))
+            spr = self._sprite_flip if self.facing == -1 else self._sprite
+            screen.blit(spr, (r[0], r[1]))
         else:
             if self.hit_flash > 0:
                 color = ENEMY_HIT_COLOR

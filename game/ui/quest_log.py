@@ -31,6 +31,7 @@ class QuestLog:
         self.open          = False
         self._quest_system = quest_system
         self._scroll       = 0   # active-quest scroll offset (index)
+        self._scroll_ind_cache: tuple = (-1, -1, None)  # (scroll, total, Surface)
 
         self._px = (SCREEN_WIDTH  - _PANEL_W) // 2
         self._py = (SCREEN_HEIGHT - _PANEL_H) // 2
@@ -149,10 +150,15 @@ class QuestLog:
             # Scroll indicator
             total = len(self._active_rows)
             if total > visible:
-                ind = self._font_desc.render(
-                    f"({self._scroll + 1}–{min(self._scroll + visible, total)}/{total})",
-                    True, _DIM_COLOR)
-                screen.blit(ind, (px + _PANEL_W - _PAD - ind.get_width(), py + _PAD + 2))
+                hi = min(self._scroll + visible, total)
+                sc = self._scroll_ind_cache
+                if sc[0] != self._scroll or sc[1] != total:
+                    ind = self._font_desc.render(
+                        f"({self._scroll + 1}–{hi}/{total})", True, _DIM_COLOR)
+                    self._scroll_ind_cache = (self._scroll, total, ind)
+                screen.blit(self._scroll_ind_cache[2],
+                            (px + _PANEL_W - _PAD - self._scroll_ind_cache[2].get_width(),
+                             py + _PAD + 2))
 
             for row in active_slice:
                 if y + _ROW_H + _BAR_H + 22 > py + _PANEL_H - 60:

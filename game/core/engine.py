@@ -221,6 +221,9 @@ class Engine:
             size=__import__('game.settings', fromlist=['INVENTORY_SLOTS']).INVENTORY_SLOTS)
         self.player.ability_slots  = [None, None]
         self.player.ability_cooldowns = [0.0, 0.0]
+        # Reset quest state for a true new game
+        self.quest_system._active.clear()
+        self.quest_system._done.clear()
         self.player.reset_to(*self.world.spawn)
         self._warm_save_points()
         self.camera.update(self.player.rect, 0.0)
@@ -303,7 +306,7 @@ class Engine:
                         self.quest_log.toggle()
 
                 elif event.key == pygame.K_c:
-                    if not self.dialogue_box.open:
+                    if not self.dialogue_box.open and not self.shop_menu.open:
                         self.crafting_menu.toggle()
 
                 elif event.key == pygame.K_e:
@@ -319,6 +322,11 @@ class Engine:
                                     shop = self.shop_system.get(npc.shop_id)
                                     name = shop.get("name", npc.name) if shop else npc.name
                                     self.shop_menu.start(npc.shop_id, name)
+                                    # Show shopkeeper greeting as a notification
+                                    if npc.dialogue_lines:
+                                        self.notifications.push(
+                                            f"{npc.name}: {npc.dialogue_lines[0]}",
+                                            (255, 230, 150), 4.0)
                                 elif npc.dialogue_lines:
                                     lines = list(npc.dialogue_lines)
                                     self.dialogue_box.start(npc.name, lines)
@@ -434,8 +442,9 @@ class Engine:
                     self._spawn_xp_number(enemy.rect.centerx, enemy.rect.top - 4, xp)
                 # Quest notifications for kills
                 enemy_type = getattr(enemy, '_type_key', None)
+                # notify("kill") already advances kill_any quests (quests.py handles it)
+                # — do NOT call notify("kill_any") separately or kill_any quests count twice
                 completed = self.quest_system.notify("kill", target=enemy_type or "")
-                completed += self.quest_system.notify("kill_any")
                 self._award_quest_rewards(completed)
                 self._spawn_death_particles(enemy.rect.center, ENEMY_COLOR, 10)
                 _assets().play("enemy_death")
@@ -617,12 +626,19 @@ class Engine:
     def _transition_zone(self, target_zone_id, spawn_override=None):
         """Save, swap zones, re-point engine references, teleport player to spawn."""
         save_game(self.player, self.world.zone_id, self.collected_zone_drops, self.opened_zone_chests, self.quest_system.serialize())
-        self.world.transition_to(target_zone_id)
+        try:
+            self.world.transition_to(target_zone_id)
+        except FileNotFoundError:
+            self.notifications.push(f"Zone '{target_zone_id}' not found!", (255, 80, 80), 4.0, big=True)
+            return
         self._setup_zone()
         sx, sy = spawn_override if spawn_override else self.world.spawn
         self.player.reset_to(sx, sy)
         self._warm_save_points()
         _assets().play("zone_transition")
+        # Trigger reach_zone quests
+        completed = self.quest_system.notify("reach_zone", target=target_zone_id)
+        self._award_quest_rewards(completed)
 
     def _open_chest(self, chest):
         """Open a chest and transfer contents to player inventory."""
@@ -645,12 +661,17 @@ class Engine:
     def _enter_building(self, building):
         """Transition into a building's interior zone (triggered by E key at door)."""
         save_game(self.player, self.world.zone_id, self.collected_zone_drops, self.opened_zone_chests, self.quest_system.serialize())
-        self.world.transition_to(building.target_zone)
+        try:
+            self.world.transition_to(building.target_zone)
+        except FileNotFoundError:
+            self.notifications.push(f"Interior zone '{building.target_zone}' not found!", (255, 80, 80), 4.0, big=True)
+            return
         self._setup_zone()
-        sx, sy = self.world.spawn
-        self.player.reset_to(sx, sy)
+        self.player.reset_to(*self.world.spawn)
         self._warm_save_points()
         _assets().play("zone_transition")
+        completed = self.quest_system.notify("reach_zone", target=building.target_zone)
+        self._award_quest_rewards(completed)
 
     def _fire_ability(self, slot_idx: int):
         """Fire the ability assigned to slot 0 (Q) or 1 (R)."""
@@ -807,10 +828,14 @@ class Engine:
     def _use_equip_ability(self, slot_idx, slot, item_def):
         ability_id = item_def.get("ability_id")
         if ability_id:
-            idx = next(
-                (i for i, s in enumerate(self.player.ability_slots) if s is None), 0
-            )
-            self.player.ability_slots[idx] = ability_id
+            free = next((i for i, s in enumerate(self.player.ability_slots)
+                         if s is None), None)
+            if free is None:
+                # Both slots occupied — tell the player instead of silently overwriting
+                self.notifications.push("Ability slots full! Q or R slot must be empty.",
+                                        (255, 150, 50), 3.0)
+                return
+            self.player.ability_slots[free] = ability_id
             self.player.inventory.remove(slot_idx, 1)
             _assets().play("ui_confirm")
 
@@ -820,11 +845,12 @@ class Engine:
         if not slot:
             return
         item_defs = self.player.inventory.item_defs
-        color = tuple(item_defs.get(slot.item_id, {}).get("color", [200, 200, 200]))
+        color     = tuple(item_defs.get(slot.item_id, {}).get("color", [200, 200, 200]))
         x = self.player.rect.centerx - ItemDrop.SIZE // 2
         y = self.player.rect.bottom  - ItemDrop.SIZE
         self.item_drops.append(ItemDrop(x, y, slot.item_id, slot.quantity, color))
-        self.player.inventory.slots[slot_idx] = None
+        # Use remove() so _totals stays in sync (direct slot assignment bypasses it)
+        self.player.inventory.remove(slot_idx, slot.quantity)
 
     def _respawn(self):
         """Reload from save file and restore the world to its saved state."""

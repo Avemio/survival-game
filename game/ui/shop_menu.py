@@ -73,6 +73,10 @@ class ShopMenu:
         self._tab_sell_off= self._font_tab.render("SELL", True, _DIM_COLOR)
         self._cursor_surf = self._font_item.render("▶", True, CRAFT_TITLE_COLOR)
 
+        # Pre-rendered empty-state messages (avoids render-in-draw)
+        self._empty_sell  = self._font_item.render("Nothing to sell.", True, _DIM_COLOR)
+        self._empty_buy   = self._font_item.render("Shop is empty.",   True, _DIM_COLOR)
+
         # Dynamic state rebuilt on open/mode-switch/transaction
         self._rows: list[dict]         = []   # row data dicts
         self._name_surfs: list         = []   # pre-rendered item name surfaces
@@ -229,9 +233,12 @@ class ShopMenu:
                     "item_id": slot.item_id, "name": name,
                     "sell_value": sv, "qty": qty,
                 })
+                # Use the actual gold awarded (buy_rate-adjusted), not raw sell_value
+                adjusted = self._shop.sell_price(self._shop_id, slot.item_id, item_defs)
+                self._rows[-1]["sell_value"] = adjusted   # update for feedback message
                 self._name_surfs.append(self._font_item.render(name, True, WHITE))
-                sv_s  = self._font_item.render(f"+{sv}g", True, _GOLD_COLOR)
-                qty_s = self._font_item.render(f"x{qty}", True, _DIM_COLOR)
+                sv_s  = self._font_item.render(f"+{adjusted}g", True, _GOLD_COLOR)
+                qty_s = self._font_item.render(f"x{qty}",        True, _DIM_COLOR)
                 self._detail_surfs.append({"sv": sv_s, "qty": qty_s})
 
     # ------------------------------------------------------------------
@@ -296,10 +303,8 @@ class ShopMenu:
         max_rows  = min(len(self._rows), (_PANEL_H - 120) // _ROW_H)
 
         if not self._rows:
-            no_items = self._font_item.render(
-                "Nothing to sell." if self._mode == "sell" else "Shop is empty.",
-                True, _DIM_COLOR)
-            screen.blit(no_items, (px + _PAD, items_top + 10))
+            no_surf = self._empty_sell if self._mode == "sell" else self._empty_buy
+            screen.blit(no_surf, (px + _PAD, items_top + 10))
 
         for i in range(max_rows):
             ry   = items_top + i * _ROW_H

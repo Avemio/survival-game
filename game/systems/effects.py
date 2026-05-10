@@ -84,14 +84,14 @@ def apply_status(entity, effect_def: dict) -> None:
 def tick_all(entity, dt: float) -> None:
     """
     Tick all active status effects on an entity and remove expired ones.
-    Resets stunned and slow_factor before ticking so effects re-assert each frame.
-    Caller guarantees entity has status_effects, stunned, and slow_factor attributes.
+    Resets stunned/slow_factor BEFORE the early-return so they are always cleared,
+    even when the last effect expires this frame and the list becomes empty.
     """
+    entity.stunned     = False   # must reset before early-return
+    entity.slow_factor = 1.0
+
     if not entity.status_effects:
         return
-
-    entity.stunned     = False
-    entity.slow_factor = 1.0
 
     # Tick first so the last frame of each effect is fully applied
     for effect in entity.status_effects:

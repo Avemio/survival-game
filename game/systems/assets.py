@@ -48,6 +48,9 @@ class AssetManager:
             return
         for ext in _SPRITE_EXTS:
             for path in folder.glob(f"*{ext}"):
+                # Don't overwrite a higher-priority format (.png beats .jpg beats .jpeg)
+                if path.stem in self._sprites:
+                    continue
                 try:
                     surf = pygame.image.load(str(path))
                     self._sprites[path.stem] = (

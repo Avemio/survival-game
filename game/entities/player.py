@@ -86,8 +86,10 @@ class Player:
         self.aiming    = False
         self.aim_angle = 0.0
 
-        # Sprite — scaled once at init; None = fall back to colored rect
-        self._sprite = _assets().get_sprite_scaled("player", PLAYER_WIDTH, PLAYER_HEIGHT)
+        # Sprites — base (facing right) and flipped (facing left), scaled once at init
+        _base = _assets().get_sprite_scaled("player", PLAYER_WIDTH, PLAYER_HEIGHT)
+        self._sprite       = _base
+        self._sprite_flip  = pygame.transform.flip(_base, True, False) if _base else None
 
     @property
     def hotbar_slot(self):
@@ -187,13 +189,16 @@ class Player:
                     self.rect.bottom = p.top
                     self.on_ground   = True
                     self.jump_held   = False
-                    # Jump buffer: trigger jump immediately on landing if input was queued
+                    # Jump buffer: trigger jump immediately on landing if input was queued.
+                    # Break out of the platform loop so a low ceiling can't cancel it.
                     if self._jump_buffer > 0:
                         self._jump_buffer = 0.0
                         self.velocity.y   = -JUMP_FORCE
                         self.on_ground    = False
                         self.jump_held    = True
                         self.jump_time    = 0.0
+                        self.pos.y        = self.rect.y
+                        break
                     else:
                         self.velocity.y = 0
                 elif self.velocity.y < 0:
@@ -286,7 +291,8 @@ class Player:
     def draw(self, screen, camera):
         r = camera.apply_tuple(self.rect)
         if self._sprite and self.hit_flash <= 0:
-            screen.blit(self._sprite, (r[0], r[1]))
+            spr = self._sprite_flip if self.facing == -1 else self._sprite
+            screen.blit(spr, (r[0], r[1]))
         else:
             if self.hit_flash > 0:
                 color = (255, 255, 255)   # white flash on damage

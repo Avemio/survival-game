@@ -56,7 +56,11 @@ class InventoryScreen:
             True, CRAFT_FOOTER_COLOR,
         )
 
-        self._qty_cache: list = [None] * INVENTORY_SLOTS
+        self._qty_cache:  list  = [None] * INVENTORY_SLOTS
+        # (item_id, Surface) — invalidates when item_id changes or slot is cleared
+        self._name_cache: list  = [None] * INVENTORY_SLOTS
+        # (cursor_slot, item_id, tip_string, Surface)
+        self._tip_cache:  tuple = (-1, "", "", None)
 
     # ------------------------------------------------------------------
     # State
@@ -67,6 +71,12 @@ class InventoryScreen:
 
     def close(self):
         self.open = False
+
+    def invalidate_cache(self, slot_idx: int):
+        """Call when an item is removed from a slot to clear its name cache."""
+        if 0 <= slot_idx < len(self._name_cache):
+            self._name_cache[slot_idx] = None
+        self._tip_cache = (-1, "", "", None)
 
     # ------------------------------------------------------------------
     # Input — engine forwards KEYDOWN events here while open
@@ -167,17 +177,21 @@ class InventoryScreen:
                         cx + _CELL - qty_s.get_width()  - 3,
                         cy + _CELL - qty_s.get_height() - 2,
                     ))
-                # Item name below (tiny)
-                name = item_def.get("name", item.item_id)[:8]
-                name_s = self._font_name.render(name, True, DIALOGUE_HINT_COLOR)
-                screen.blit(name_s, (cx + 2, cy + _CELL - name_s.get_height() - 2))
+                # Item name below — cached per slot by item_id
+                nc = self._name_cache[idx]
+                if nc is None or nc[0] != item.item_id:
+                    raw = item_def.get("name", item.item_id)[:8]
+                    nc  = (item.item_id, self._font_name.render(raw, True, DIALOGUE_HINT_COLOR))
+                    self._name_cache[idx] = nc
+                screen.blit(nc[1], (cx + 2, cy + _CELL - nc[1].get_height() - 2))
 
             # Border — gold for selected, grey otherwise
             border = CRAFT_TITLE_COLOR if idx == self._cursor else CRAFT_PANEL_BORDER
             pygame.draw.rect(screen, border, cell_r, 2)
 
-        # Tooltip for hovered item
+        # Tooltip for hovered item — cached; re-renders only when cursor or item changes
         hovered = inv.slots[self._cursor]
+        tip_y   = start_y + _ROWS * (_CELL + _GAP) + 4
         if hovered:
             item_def  = inv.get_def(hovered.item_id)
             tip_parts = [item_def.get("name", hovered.item_id)]
@@ -185,10 +199,12 @@ class InventoryScreen:
                 tip_parts.append(f"+{item_def.get('heal_amount', 0)} HP")
             elif item_def.get("use") == "equip_ability":
                 tip_parts.append(f"Ability: {item_def.get('ability_id', '')}")
-            tip = "  |  ".join(tip_parts)
-            tip_s = self._font_name.render(tip, True, DIALOGUE_TEXT_COLOR)
-            tip_y = start_y + _ROWS * (_CELL + _GAP) + 4
-            screen.blit(tip_s, (px + _PADDING, tip_y))
+            tip_str = "  |  ".join(tip_parts)
+            tc = self._tip_cache
+            if tc[0] != self._cursor or tc[1] != hovered.item_id or tc[2] != tip_str:
+                tip_s = self._font_name.render(tip_str, True, DIALOGUE_TEXT_COLOR)
+                self._tip_cache = (self._cursor, hovered.item_id, tip_str, tip_s)
+            screen.blit(self._tip_cache[3], (px + _PADDING, tip_y))
 
         # Footer divider + hint
         footer_y = py + _PANEL_H - 40

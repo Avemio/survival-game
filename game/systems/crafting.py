@@ -66,10 +66,15 @@ class CraftingSystem:
         for item_id, qty_needed in recipe["ingredients"].items():
             inventory.consume(item_id, qty_needed)
 
-        leftover = inventory.add(recipe["result"], recipe.get("count", 1))
+        count    = recipe.get("count", 1)
+        leftover = inventory.add(recipe["result"], count)
 
-        # If the result didn't fit, refund ingredients (inventory was full)
+        # If the result didn't fully fit, remove any partial placement before refunding.
+        # Without this, partial placement + full ingredient refund = item duplication.
         if leftover > 0:
+            placed = count - leftover
+            if placed > 0:
+                inventory.consume(recipe["result"], placed)
             for item_id, qty_needed in recipe["ingredients"].items():
                 inventory.add(item_id, qty_needed)
             return False
