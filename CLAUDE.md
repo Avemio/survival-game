@@ -55,10 +55,17 @@ data/
 ---
 
 ## Current status
-**Last completed:** M11 — Code review + polish pass (2026-05-08)  
-**Next:** M12 — Animated Sprites
+**Last completed:** Big session 2026-05-10 — all systems built, fully playable  
+**Next:** M13 — Animated Sprites (just add PNG files to assets/sprites/), or queued items below
 
-Full milestone table (including M12–M17 backlog) in `Survival Game.md` in the Second Brain.
+**What's built:** trading (gold/shop/shopkeeper), XP/leveling, chests, title screen, quest system
+(4 quests, NPC givers, J key log), archer enemy type (ai_type="ranged"), minimap, content editor
+(tools/editor.py, 8 tabs), packaging (package.py → dist/), zone_02, world-bounds camera clamping,
+cross-reference validation, 20 bugs fixed, O(1) inventory count, pre-rendered UI surfaces
+
+**Queued:** Animated sprites, skill tree / stat spending, settings menu, day/night cycle, NPC schedules
+
+Full detail in `.claude` project memory — read architecture.md and project_milestones.md.
 
 ---
 
@@ -97,9 +104,15 @@ These are established patterns — don't break them:
 ---
 
 ## Controls (for testing)
-- **WASD / arrows** — move + jump (W = jump)
+- **WASD / arrows** — move + jump (W/Space/Up = jump)
 - **Z** — attack
+- **Q / R** — ability slots (equip scrolls first with F)
+- **Hold X** — draw bow (Up/Down to aim, release to fire)
+- **F** — use/equip selected item
 - **1–8** — hotbar slots
+- **I** — inventory screen (32 slots)
+- **J** — quest log
 - **C** — crafting menu
-- **E** — interact with NPC / advance dialogue
-- **Esc** — close menu / quit
+- **E** — interact with NPC / advance dialogue / open shop / open chest
+- **Tab** — switch Buy/Sell in shop
+- **Esc** — close menu / pause
