@@ -43,6 +43,7 @@ from game.systems.shop        import ShopSystem
 from game.systems.quests      import QuestSystem
 from game.ui.shop_menu        import ShopMenu
 from game.ui.quest_log        import QuestLog
+from game.ui.notifications    import NotificationQueue
 from game.entities.projectile import Projectile
 
 
@@ -140,10 +141,14 @@ class Engine:
         self.shop_system      = ShopSystem()
         self.shop_menu        = ShopMenu(self.player, self.shop_system)
         self.quest_log        = QuestLog(self.quest_system)
+        self.notifications    = NotificationQueue()
 
         # Title screen — always shown first on startup
         self._state       = GameState.TITLE
         self._title_screen = TitleScreen(has_save=save_data is not None)
+
+        # monster_slayer is always active — no NPC required
+        self.quest_system.start("monster_slayer")
 
         # Death overlay — all surfaces built once at init (never inside draw)
         self.death_timer    = 0.0
@@ -213,6 +218,8 @@ class Engine:
         self.player.reset_to(*self.world.spawn)
         self._warm_save_points()
         self.camera.update(self.player.rect, 0.0)
+        # Re-ensure the always-active quest is running after a fresh start
+        self.quest_system.start("monster_slayer")
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -307,10 +314,21 @@ class Engine:
                                     name = shop.get("name", npc.name) if shop else npc.name
                                     self.shop_menu.start(npc.shop_id, name)
                                 elif npc.dialogue_lines:
-                                    self.dialogue_box.start(npc.name, npc.dialogue_lines)
-                                # Give quest if NPC has one and it hasn't been started
-                                if getattr(npc, 'gives_quest', None):
-                                    self.quest_system.start(npc.gives_quest)
+                                    lines = list(npc.dialogue_lines)
+                                    self.dialogue_box.start(npc.name, lines)
+                                # Give quest — inject description into dialogue and notify
+                                qid = getattr(npc, 'gives_quest', None)
+                                if qid:
+                                    started = self.quest_system.start(qid)
+                                    if started:
+                                        q = self.quest_system.get_def(qid)
+                                        if q:
+                                            self.notifications.push(
+                                                f"New Quest: {q['name']}",
+                                                (255, 220, 60), 4.0, big=True)
+                                            self.notifications.push(
+                                                q.get('description', ''),
+                                                (200, 200, 220), 4.0)
                                 break
                         else:
                             for chest in self.chests:
@@ -349,6 +367,7 @@ class Engine:
 
         self.crafting_menu.update(dt)
         self.shop_menu.update(dt)
+        self.notifications.update(dt)
 
         # Death countdown — world paused; respawn fires when timer expires
         if self.death_timer > 0:
@@ -452,12 +471,22 @@ class Engine:
                     completed = self.quest_system.notify("collect", target=drop.item_id,
                                                          amount=drop.quantity)
                     self._award_quest_rewards(completed)
+                    # Ability scroll hint
+                    item_def = self.player.inventory.item_defs.get(drop.item_id, {})
+                    if item_def.get("use") == "equip_ability":
+                        ability_id = item_def.get("ability_id", "")
+                        self.notifications.push(
+                            f"Ability scroll: {item_def.get('name', ability_id)}",
+                            (160, 200, 255), 4.0, big=True)
+                        self.notifications.push(
+                            "Open inventory (I) or hotbar → select scroll → press F to equip",
+                            (180, 180, 220), 4.0)
                 else:
                     drop.quantity = leftover
         self.item_drops[:] = [d for d in self.item_drops if d.alive]
 
     def _award_quest_rewards(self, completed: list[str]):
-        """Award XP + gold for each completed quest and show feedback."""
+        """Award XP + gold for each completed quest, notify the player."""
         for quest_id in completed:
             q = self.quest_system.get_def(quest_id)
             if not q:
@@ -466,7 +495,15 @@ class Engine:
             gold = q.get("reward_gold",  0)
             if xp   > 0: self.player.award_xp(xp)
             if gold > 0: self.player.inventory.add("gold", gold)
-            _assets().play("save_point")   # use save sound as quest-complete chime
+            _assets().play("save_point")
+            self.notifications.push(
+                f"Quest Complete: {q['name']}!",
+                (80, 255, 120), 4.0, big=True)
+            parts = []
+            if xp   > 0: parts.append(f"+{xp} XP")
+            if gold > 0: parts.append(f"+{gold} gold")
+            if parts:
+                self.notifications.push("  ".join(parts), (200, 230, 200), 3.5)
 
     def _update_enemy_attacks(self, dt):
         for enemy in self.enemies:
@@ -967,6 +1004,9 @@ class Engine:
 
         # Quest log
         self.quest_log.draw(self.screen)
+
+        # Floating notifications (right side, above pause menu)
+        self.notifications.draw(self.screen)
 
         # Pause menu — drawn over dialogue (Esc can't open it while dialogue is active)
         self.pause_menu.draw(self.screen)

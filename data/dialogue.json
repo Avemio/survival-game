@@ -1,8 +1,19 @@
 {
   "villager_01": [
-    "You're new here. Don't wander east - there's something moving in the caves that wasn't there a month ago.",
-    "The old ruins past the ridge used to be empty. Now there are lights at night. Whatever's in there, it's not friendly.",
-    "Stock up on whatever you can find. If things get worse, I'm heading south."
+    "You're new here. Good — we need someone willing to fight.",
+    "Those creatures to the east are getting bolder. Kill a few and maybe the rest will think twice. I'll make it worth your while.",
+    "One more thing: keep an eye out for glowing scrolls on the ground. Pick one up, open your inventory (I key) or hotbar, select the scroll, and press F to equip it as an ability.",
+    "Equipped abilities show up in the Q and R slots to the left of your hotbar. Press Q or R in combat to unleash them."
+  ],
+  "shopkeeper_01": [
+    "Welcome. I've got supplies if you've got gold — enemies drop it when they fall.",
+    "I also carry ability scrolls. Equip them from your inventory with F — they fill the Q and R slots next to your hotbar.",
+    "Bring me herbs if you find them. I'll pay well. Five should cover a fair price."
+  ],
+  "wanderer_01": [
+    "I've been counting the creatures since I arrived. Haven't stopped coming.",
+    "If you're hunting them anyway, keep count. Kill enough of any kind and I'll have a reward for you.",
+    "The stone near the ruins is good quality too. I need a crate of it. Bring me eight pieces and I'll see you right."
   ],
   "guard_01": [
     "Turn back if you value your life. The creatures beyond these ruins are unlike anything I've seen.",

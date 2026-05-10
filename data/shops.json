@@ -9,7 +9,10 @@
       {"item_id": "wood",          "price": 4,  "stock": -1},
       {"item_id": "stone",         "price": 4,  "stock": -1},
       {"item_id": "plank",         "price": 10, "stock": -1},
-      {"item_id": "bow",           "price": 40, "stock": 3}
+      {"item_id": "bow",                "price": 40,  "stock": 3},
+      {"item_id": "ability_wave_slash", "price": 60,  "stock": 2},
+      {"item_id": "ability_fireball",   "price": 80,  "stock": 1},
+      {"item_id": "ability_earthquake", "price": 100, "stock": 1}
     ]
   }
 }

@@ -54,8 +54,9 @@
     {"item_id": "arrow",              "quantity": 8,  "x": 4700, "y": 465}
   ],
   "npcs": [
-    {"type": "villager",   "dialogue_id": "villager_01", "gives_quest": "first_blood",   "x": 300, "y": 608},
-    {"type": "shopkeeper", "dialogue_id": "",  "shop_id": "general_store", "gives_quest": "herb_gatherer", "x": 480, "y": 608}
+    {"type": "villager",   "dialogue_id": "villager_01",    "gives_quest": "first_blood",    "x": 300, "y": 608},
+    {"type": "shopkeeper", "dialogue_id": "shopkeeper_01",  "shop_id": "general_store", "gives_quest": "herb_gatherer",  "x": 480, "y": 608},
+    {"type": "villager",   "dialogue_id": "wanderer_01",    "gives_quest": "stone_collector", "x": 1820, "y": 515}
   ],
   "exits": [
     {"x": 4950, "y": 0, "w": 50, "h": 720, "target_zone": "zone_02"}
