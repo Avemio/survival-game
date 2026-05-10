@@ -59,11 +59,13 @@ class Enemy:
 
         self.health     = stats.get("health", ENEMY_HEALTH)
         self.max_health = self.health   # for health bar display
-        self.alive     = True
-        self.hit_flash = 0.0   # countdown; >0 = flashing white
-        self.loot      = stats.get("drops", [])
-        self.facing    = 1     # 1 = right, -1 = left
-        self.on_ground = False
+        self.alive      = True
+        self.hit_flash  = 0.0   # countdown; >0 = flashing white
+        self.loot       = stats.get("drops", [])
+        self.xp_reward  = stats.get("xp_reward", 0)
+        self._type_key  = stats.get("_type_key", "")
+        self.facing     = 1     # 1 = right, -1 = left
+        self.on_ground  = False
 
         # AI stats — read from data, fall back to settings defaults
         self.patrol_speed    = stats.get("speed",           ENEMY_SPEED)

@@ -54,11 +54,16 @@
     {"item_id": "arrow",              "quantity": 8,  "x": 4700, "y": 465}
   ],
   "npcs": [
-    {"type": "villager",    "dialogue_id": "villager_01", "x": 300, "y": 608},
-    {"type": "shopkeeper",  "dialogue_id": "",  "shop_id": "general_store", "x": 480, "y": 608}
+    {"type": "villager",   "dialogue_id": "villager_01", "gives_quest": "first_blood",   "x": 300, "y": 608},
+    {"type": "shopkeeper", "dialogue_id": "",  "shop_id": "general_store", "gives_quest": "herb_gatherer", "x": 480, "y": 608}
   ],
   "exits": [
     {"x": 4950, "y": 0, "w": 50, "h": 720, "target_zone": "zone_02"}
+  ],
+  "chests": [
+    {"x": 1380, "y": 339, "contents": [{"item_id": "gold", "quantity": 20}, {"item_id": "herb", "quantity": 2}]},
+    {"x": 3840, "y": 359, "contents": [{"item_id": "gold", "quantity": 35}, {"item_id": "health_potion", "quantity": 1}]},
+    {"x": 4660, "y": 449, "contents": [{"item_id": "gold", "quantity": 50}, {"item_id": "arrow", "quantity": 10}]}
   ],
   "buildings": [
     {

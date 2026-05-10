@@ -12,6 +12,7 @@ from pathlib import Path
 from game.entities.enemy     import Enemy
 from game.entities.item_drop import ItemDrop
 from game.entities.npc       import NPC
+from game.entities.chest     import Chest
 from game.settings import SAVE_POINT_COLOR, SAVE_POINT_ACTIVE_COLOR, EXIT_COLOR, EXIT_BORDER_COLOR, BG_COLOR
 
 
@@ -110,6 +111,7 @@ class Zone:
         self.npcs        = []
         self.exits       = []
         self.buildings   = []
+        self.chests      = []
         self.spawn       = (0, 0)
         self.bg_color    = BG_COLOR
         self.music       = None
@@ -132,7 +134,8 @@ class Zone:
             )
 
         for e in data.get("enemies", []):
-            stats = enemy_types.get(e["type"], {})
+            stats = dict(enemy_types.get(e["type"], {}))
+            stats["_type_key"] = e["type"]   # store type key for quest notifications
             self.enemies.append(Enemy(e["x"], e["y"], stats))
 
         for sp in data.get("save_points", []):
@@ -149,13 +152,22 @@ class Zone:
         for n in data.get("npcs", []):
             npc_def = npc_types.get(n["type"], {})
             lines   = dialogue_data.get(n.get("dialogue_id", ""), [])
-            shop_id = n.get("shop_id")
-            self.npcs.append(NPC(n["x"], n["y"], npc_def, lines, shop_id=shop_id))
+            shop_id     = n.get("shop_id")
+            gives_quest = n.get("gives_quest")
+            self.npcs.append(NPC(n["x"], n["y"], npc_def, lines,
+                                 shop_id=shop_id, gives_quest=gives_quest))
 
         for ex in data.get("exits", []):
             self.exits.append(ZoneExit(
                 ex["x"], ex["y"], ex["w"], ex["h"], ex["target_zone"],
                 spawn_override=ex.get("spawn_override"),
+            ))
+
+        for ci, c in enumerate(data.get("chests", [])):
+            self.chests.append(Chest(
+                c["x"], c["y"],
+                contents=c.get("contents", []),
+                zone_chest_index=ci,
             ))
 
         for b in data.get("buildings", []):

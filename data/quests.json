@@ -1,0 +1,37 @@
+{
+  "first_blood": {
+    "name":        "First Blood",
+    "description": "Kill 3 enemies to prove your worth.",
+    "type":        "kill",
+    "target":      "basic",
+    "count":       3,
+    "reward_xp":   60,
+    "reward_gold": 25
+  },
+  "herb_gatherer": {
+    "name":        "Herb Gatherer",
+    "description": "Bring me 5 herbs from the wilds.",
+    "type":        "collect",
+    "target":      "herb",
+    "count":       5,
+    "reward_xp":   40,
+    "reward_gold": 20
+  },
+  "stone_collector": {
+    "name":        "Stone Collector",
+    "description": "I need 8 pieces of stone for repairs.",
+    "type":        "collect",
+    "target":      "stone",
+    "count":       8,
+    "reward_xp":   30,
+    "reward_gold": 15
+  },
+  "monster_slayer": {
+    "name":        "Monster Slayer",
+    "description": "Defeat 5 enemies of any kind.",
+    "type":        "kill_any",
+    "count":       5,
+    "reward_xp":   100,
+    "reward_gold": 50
+  }
+}

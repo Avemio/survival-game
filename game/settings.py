@@ -152,6 +152,17 @@ ABILITY_SLOT_COUNT = 2      # number of Q/R ability slots
 
 # Combat feel
 HITSTOP_DURATION = 0.05     # seconds of physics freeze when landing a hit (3 frames @60fps)
+
+# XP / level system
+XP_BASE        = 100    # XP required to reach level 2
+XP_SCALE       = 1.5    # multiplier applied each level (level 3 needs 150, level 4 needs 225, …)
+MAX_LEVEL      = 50
+LEVEL_UP_HP    = 15     # max_health bonus gained per level-up
+LEVEL_UP_MANA  = 10     # max_mana bonus gained per level-up
+XP_BAR_H      = 6
+XP_BAR_BG     = (15,  15,  50)
+XP_BAR_FG     = (80, 100, 255)
+XP_BAR_BORDER = (100, 120, 220)
 MANA_BAR_H      = 12
 MANA_BAR_BG     = (20,  20,  80)
 MANA_BAR_FG     = (60, 120, 255)

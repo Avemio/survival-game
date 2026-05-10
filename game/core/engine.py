@@ -8,7 +8,13 @@ Does NOT own: game logic, combat, zone data.
 import sys
 import math
 import random
+from enum import Enum, auto
 import pygame
+
+
+class GameState(Enum):
+    TITLE   = auto()
+    PLAYING = auto()
 
 from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
                                    BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR, ENEMY_ATTACK_COLOR,
@@ -27,13 +33,16 @@ from game.ui.menus            import CraftingMenu
 from game.ui.dialogue         import DialogueBox
 from game.ui.pause_menu       import PauseMenu
 from game.ui.inventory_screen import InventoryScreen
+from game.ui.title_screen     import TitleScreen
 from game.systems.assets      import get as _assets
 from game.systems.saving      import save_game, load_game
 from game.systems.crafting    import CraftingSystem
 from game.systems.abilities   import AbilitySystem
 from game.systems.effects     import apply_status
 from game.systems.shop        import ShopSystem
+from game.systems.quests      import QuestSystem
 from game.ui.shop_menu        import ShopMenu
+from game.ui.quest_log        import QuestLog
 from game.entities.projectile import Projectile
 
 
@@ -79,6 +88,8 @@ class Engine:
 
         # Per-zone drop log: {zone_id: set of int indices already collected}
         self.collected_zone_drops = {}
+        # Per-zone chest log: {zone_id: set of int indices already opened}
+        self.opened_zone_chests   = {}
 
         self.player = Player(*self.world.spawn)
 
@@ -87,8 +98,13 @@ class Engine:
             player_data = save_data.get("player", {})
             px = player_data.get("x", self.world.spawn[0])
             py = player_data.get("y", self.world.spawn[1])
-            self.player.health = player_data.get("health", self.player.max_health)
-            self.player.mana   = float(player_data.get("mana", self.player.max_mana))
+            self.player.max_health = player_data.get("max_health", self.player.max_health)
+            self.player.max_mana   = player_data.get("max_mana",   self.player.max_mana)
+            self.player.health     = player_data.get("health", self.player.max_health)
+            self.player.mana       = float(player_data.get("mana", self.player.max_mana))
+            self.player.level      = player_data.get("level", 1)
+            self.player.xp         = player_data.get("xp", 0)
+            self.player.xp_to_next = player_data.get("xp_to_next", 100)
 
             inv_data = player_data.get("inventory")
             if inv_data:
@@ -104,6 +120,11 @@ class Engine:
                 self.collected_zone_drops = {zone_id: set(raw)}
             else:
                 self.collected_zone_drops = {k: set(v) for k, v in raw.items()}
+            raw_chests = save_data.get("opened_zone_chests", {})
+            self.opened_zone_chests = {k: set(v) for k, v in raw_chests.items()}
+            quest_data = save_data.get("quests", {})
+            if quest_data:
+                self.quest_system.load(quest_data)
         else:
             px, py = self.world.spawn
 
@@ -117,6 +138,12 @@ class Engine:
         self.inventory_screen = InventoryScreen(self.player)
         self.shop_system      = ShopSystem()
         self.shop_menu        = ShopMenu(self.player, self.shop_system)
+        self.quest_system     = QuestSystem()
+        self.quest_log        = QuestLog(self.quest_system)
+
+        # Title screen — always shown first on startup
+        self._state       = GameState.TITLE
+        self._title_screen = TitleScreen(has_save=save_data is not None)
 
         # Death overlay — all surfaces built once at init (never inside draw)
         self.death_timer    = 0.0
@@ -159,10 +186,51 @@ class Engine:
         self._pity_count     = 0
         self._PITY_THRESHOLD = 8
 
+    def _new_game(self):
+        """Reset to a fresh game ignoring any existing save."""
+        from pathlib import Path
+        save_path = Path(__file__).parent.parent.parent / "save.json"
+        if save_path.exists():
+            save_path.unlink()
+        # Reload zone_01 fresh
+        self.collected_zone_drops = {}
+        self.opened_zone_chests   = {}
+        self.world.transition_to("zone_01")
+        self._setup_zone()
+        # Reset player to default state
+        from game.settings import PLAYER_MAX_HEALTH, PLAYER_MAX_MANA
+        self.player.max_health     = PLAYER_MAX_HEALTH
+        self.player.max_mana       = PLAYER_MAX_MANA
+        self.player.health         = PLAYER_MAX_HEALTH
+        self.player.mana           = float(PLAYER_MAX_MANA)
+        self.player.level          = 1
+        self.player.xp             = 0
+        self.player.xp_to_next     = 100
+        self.player.inventory      = __import__('game.systems.inventory', fromlist=['Inventory']).Inventory(
+            size=__import__('game.settings', fromlist=['INVENTORY_SLOTS']).INVENTORY_SLOTS)
+        self.player.ability_slots  = [None, None]
+        self.player.ability_cooldowns = [0.0, 0.0]
+        self.player.reset_to(*self.world.spawn)
+        self._warm_save_points()
+        self.camera.update(self.player.rect, 0.0)
+
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+
+            # Title screen intercepts all input while active
+            if self._state == GameState.TITLE:
+                if event.type == pygame.KEYDOWN:
+                    result = self._title_screen.handle_event(event)
+                    if result == "new_game":
+                        self._new_game()
+                        self._state = GameState.PLAYING
+                    elif result == "continue":
+                        self._state = GameState.PLAYING
+                    elif result == "quit":
+                        self.running = False
+                continue
 
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_x and self.player.aiming:
@@ -189,6 +257,11 @@ class Engine:
                     self.shop_menu.handle_event(event)
                     continue
 
+                # Quest log intercepts all keys while open
+                if self.quest_log.open:
+                    self.quest_log.handle_event(event)
+                    continue
+
                 # Inventory screen intercepts while open
                 if self.inventory_screen.open:
                     action = self.inventory_screen.handle_event(event)
@@ -212,6 +285,10 @@ class Engine:
                     if not self.crafting_menu.open and not self.dialogue_box.open:
                         self.inventory_screen.toggle()
 
+                elif event.key == pygame.K_j:
+                    if not self.crafting_menu.open and not self.dialogue_box.open:
+                        self.quest_log.toggle()
+
                 elif event.key == pygame.K_c:
                     if not self.dialogue_box.open:
                         self.crafting_menu.toggle()
@@ -231,12 +308,20 @@ class Engine:
                                     self.shop_menu.start(npc.shop_id, name)
                                 elif npc.dialogue_lines:
                                     self.dialogue_box.start(npc.name, npc.dialogue_lines)
+                                # Give quest if NPC has one and it hasn't been started
+                                if getattr(npc, 'gives_quest', None):
+                                    self.quest_system.start(npc.gives_quest)
                                 break
                         else:
-                            for building in self.buildings:
-                                if building.interact_rect.colliderect(self.player.rect):
-                                    self._enter_building(building)
+                            for chest in self.chests:
+                                if not chest.open and chest.interact_rect.colliderect(self.player.rect):
+                                    self._open_chest(chest)
                                     break
+                            else:
+                                for building in self.buildings:
+                                    if building.interact_rect.colliderect(self.player.rect):
+                                        self._enter_building(building)
+                                        break
 
                 elif event.key == pygame.K_f:
                     if not self.crafting_menu.open and not self.dialogue_box.open:
@@ -259,6 +344,9 @@ class Engine:
                     self.crafting_menu.handle_event(event)
 
     def update(self, dt):
+        if self._state == GameState.TITLE:
+            return
+
         self.crafting_menu.update(dt)
         self.shop_menu.update(dt)
 
@@ -272,7 +360,7 @@ class Engine:
         # Pause all world simulation while any overlay is open
         if (self.pause_menu.open or self.crafting_menu.open
                 or self.dialogue_box.open or self.inventory_screen.open
-                or self.shop_menu.open):
+                or self.shop_menu.open or self.quest_log.open):
             return
 
         self._update_wind(dt)
@@ -315,6 +403,15 @@ class Engine:
                 living.append(enemy)
             else:
                 self._spawn_drops(enemy)
+                xp = getattr(enemy, 'xp_reward', 0)
+                if xp > 0:
+                    self.player.award_xp(xp)
+                    self._spawn_xp_number(enemy.rect.centerx, enemy.rect.top - 4, xp)
+                # Quest notifications for kills
+                enemy_type = getattr(enemy, '_type_key', None)
+                completed = self.quest_system.notify("kill", target=enemy_type or "")
+                completed += self.quest_system.notify("kill_any")
+                self._award_quest_rewards(completed)
                 self._spawn_death_particles(enemy.rect.center, ENEMY_COLOR, 10)
                 _assets().play("enemy_death")
         self.enemies[:] = living
@@ -347,14 +444,29 @@ class Engine:
                 if leftover == 0:
                     drop.alive = False
                     _assets().play("item_pickup")
-                    # Track zone drops so they don't respawn on next load
                     if drop.zone_drop_index is not None:
                         self.collected_zone_drops.setdefault(
                             self.world.zone_id, set()
                         ).add(drop.zone_drop_index)
+                    # Quest notify for collect
+                    completed = self.quest_system.notify("collect", target=drop.item_id,
+                                                         amount=drop.quantity)
+                    self._award_quest_rewards(completed)
                 else:
-                    drop.quantity = leftover   # partial pickup if inventory was nearly full
+                    drop.quantity = leftover
         self.item_drops[:] = [d for d in self.item_drops if d.alive]
+
+    def _award_quest_rewards(self, completed: list[str]):
+        """Award XP + gold for each completed quest and show feedback."""
+        for quest_id in completed:
+            q = self.quest_system.get_def(quest_id)
+            if not q:
+                continue
+            xp   = q.get("reward_xp",   0)
+            gold = q.get("reward_gold",  0)
+            if xp   > 0: self.player.award_xp(xp)
+            if gold > 0: self.player.inventory.add("gold", gold)
+            _assets().play("save_point")   # use save sound as quest-complete chime
 
     def _update_enemy_attacks(self, dt):
         for enemy in self.enemies:
@@ -407,7 +519,7 @@ class Engine:
             overlapping = sp.rect.colliderect(self.player.rect)
             if overlapping and not sp.was_overlapping:
                 self.player.health = self.player.max_health
-                save_game(self.player, self.world.zone_id, self.collected_zone_drops)
+                save_game(self.player, self.world.zone_id, self.collected_zone_drops, self.opened_zone_chests, self.quest_system.serialize())
                 sp.flash_timer = sp.FLASH_DURATION
                 _assets().play("save_point")
             sp.was_overlapping = overlapping
@@ -430,10 +542,17 @@ class Engine:
         self.exits       = self.world.exits
         self.item_drops  = self.world.item_drops
         self.buildings   = self.world.buildings
+        self.chests      = self.world.chests
 
         # Filter already-collected drops for this zone
-        already = self.collected_zone_drops.get(zone_id, set())
-        self.item_drops[:] = [d for d in self.item_drops if d.zone_drop_index not in already]
+        already_drops = self.collected_zone_drops.get(zone_id, set())
+        self.item_drops[:] = [d for d in self.item_drops if d.zone_drop_index not in already_drops]
+
+        # Mark already-opened chests
+        already_chests = self.opened_zone_chests.get(zone_id, set())
+        for chest in self.chests:
+            if chest.zone_chest_index in already_chests:
+                chest.open = True
 
         # Reset zone exit overlap state (rising-edge guard)
         for exit_ in self.exits:
@@ -454,7 +573,7 @@ class Engine:
 
     def _transition_zone(self, target_zone_id, spawn_override=None):
         """Save, swap zones, re-point engine references, teleport player to spawn."""
-        save_game(self.player, self.world.zone_id, self.collected_zone_drops)
+        save_game(self.player, self.world.zone_id, self.collected_zone_drops, self.opened_zone_chests, self.quest_system.serialize())
         self.world.transition_to(target_zone_id)
         self._setup_zone()
         sx, sy = spawn_override if spawn_override else self.world.spawn
@@ -462,9 +581,27 @@ class Engine:
         self._warm_save_points()
         _assets().play("zone_transition")
 
+    def _open_chest(self, chest):
+        """Open a chest and transfer contents to player inventory."""
+        chest.open = True
+        _assets().play("item_pickup")
+        if chest.zone_chest_index is not None:
+            self.opened_zone_chests.setdefault(self.world.zone_id, set()).add(
+                chest.zone_chest_index)
+        for item in chest.contents:
+            leftover = self.player.inventory.add(item["item_id"], item["quantity"])
+            if leftover > 0:
+                # Drop what didn't fit at the player's feet
+                from game.entities.item_drop import ItemDrop
+                color = tuple(self.player.inventory.item_defs.get(
+                    item["item_id"], {}).get("color", [200, 200, 200]))
+                x = self.player.rect.centerx - ItemDrop.SIZE // 2
+                y = self.player.rect.bottom  - ItemDrop.SIZE
+                self.item_drops.append(ItemDrop(x, y, item["item_id"], leftover, color))
+
     def _enter_building(self, building):
         """Transition into a building's interior zone (triggered by E key at door)."""
-        save_game(self.player, self.world.zone_id, self.collected_zone_drops)
+        save_game(self.player, self.world.zone_id, self.collected_zone_drops, self.opened_zone_chests, self.quest_system.serialize())
         self.world.transition_to(building.target_zone)
         self._setup_zone()
         sx, sy = self.world.spawn
@@ -541,6 +678,10 @@ class Engine:
     def _spawn_damage_number(self, x, y, value, color=(255, 240, 80)):
         surf = self._dmg_font.render(str(int(value)), True, color)
         self.damage_numbers.append(_DamageNumber(x - surf.get_width() // 2, y, surf))
+
+    def _spawn_xp_number(self, x, y, amount: int):
+        surf = self._dmg_font.render(f"+{amount} XP", True, (100, 140, 255))
+        self.damage_numbers.append(_DamageNumber(x - surf.get_width() // 2, y - 18, surf))
 
     def _update_damage_numbers(self, dt):
         for dn in self.damage_numbers:
@@ -654,8 +795,13 @@ class Engine:
             player_data = save_data.get("player", {})
             px = player_data.get("x", self.world.spawn[0])
             py = player_data.get("y", self.world.spawn[1])
-            self.player.health = player_data.get("health", self.player.max_health)
-            self.player.mana   = float(player_data.get("mana", self.player.max_mana))
+            self.player.max_health = player_data.get("max_health", self.player.max_health)
+            self.player.max_mana   = player_data.get("max_mana",   self.player.max_mana)
+            self.player.health     = player_data.get("health", self.player.max_health)
+            self.player.mana       = float(player_data.get("mana", self.player.max_mana))
+            self.player.level      = player_data.get("level", 1)
+            self.player.xp         = player_data.get("xp", 0)
+            self.player.xp_to_next = player_data.get("xp_to_next", 100)
             inv_data = player_data.get("inventory")
             if inv_data:
                 self.player.inventory.load_slots(inv_data)
@@ -667,7 +813,11 @@ class Engine:
                 self.collected_zone_drops = {zone_id: set(raw)}
             else:
                 self.collected_zone_drops = {k: set(v) for k, v in raw.items()}
-            # Re-filter drops now that we have the authoritative collection data
+            raw_chests = save_data.get("opened_zone_chests", {})
+            self.opened_zone_chests = {k: set(v) for k, v in raw_chests.items()}
+            quest_data = save_data.get("quests", {})
+            if quest_data:
+                self.quest_system.load(quest_data)
             already = self.collected_zone_drops.get(zone_id, set())
             self.item_drops[:] = [d for d in self.item_drops if d.zone_drop_index not in already]
         else:
@@ -704,6 +854,11 @@ class Engine:
             pygame.draw.circle(self.screen, AIM_DOT_COLOR, (sx, sy), radius)
 
     def draw(self):
+        if self._state == GameState.TITLE:
+            self._title_screen.draw(self.screen)
+            pygame.display.flip()
+            return
+
         self.screen.fill(self.world.bg_color)
 
         # Atmospheric wind streaks — drawn first, behind everything
@@ -724,6 +879,10 @@ class Engine:
         # Draw buildings (behind NPCs/enemies)
         for building in self.buildings:
             building.draw(self.screen, self.camera, self.player.rect)
+
+        # Draw chests
+        for chest in self.chests:
+            chest.draw(self.screen, self.camera, self.player.rect)
 
         # Draw zone exits
         for exit_ in self.exits:
@@ -805,6 +964,9 @@ class Engine:
 
         # Shop menu — drawn over HUD/inventory
         self.shop_menu.draw(self.screen)
+
+        # Quest log
+        self.quest_log.draw(self.screen)
 
         # Pause menu — drawn over dialogue (Esc can't open it while dialogue is active)
         self.pause_menu.draw(self.screen)

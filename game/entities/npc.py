@@ -11,7 +11,7 @@ from game.systems.assets import get as _assets
 
 
 class NPC:
-    def __init__(self, x, y, npc_def, dialogue_lines, shop_id=None):
+    def __init__(self, x, y, npc_def, dialogue_lines, shop_id=None, gives_quest=None):
         """
         x, y           — top-left world position
         npc_def        — dict from npcs.json (name, color, width, height)
@@ -26,6 +26,7 @@ class NPC:
         self.color          = tuple(npc_def.get("color", [200, 190, 140]))
         self.dialogue_lines = dialogue_lines   # list[str]
         self.shop_id        = shop_id
+        self.gives_quest    = gives_quest      # optional quest_id to hand out on interact
 
         # Sprite — scaled once at init; None = fall back to colored rect
         sprite_name  = npc_def.get("sprite", f"npc_{self.name.lower()}")

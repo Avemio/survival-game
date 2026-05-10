@@ -82,6 +82,10 @@ class World:
         return self.zone.buildings
 
     @property
+    def chests(self):
+        return self.zone.chests
+
+    @property
     def bg_color(self):
         return self.zone.bg_color
 

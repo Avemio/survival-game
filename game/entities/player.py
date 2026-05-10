@@ -18,6 +18,7 @@ from game.settings import (
     HOTBAR_SLOTS, INVENTORY_SLOTS,
     ARROW_ANGLE_MAX, ARROW_ANGLE_SPEED,
     STATUS_COLORS,
+    XP_BASE, XP_SCALE, MAX_LEVEL, LEVEL_UP_HP, LEVEL_UP_MANA,
 )
 
 _COYOTE_TIME      = 0.10   # seconds of coyote grace after walking off a ledge
@@ -55,6 +56,12 @@ class Player:
         # Mana
         self.max_mana = PLAYER_MAX_MANA
         self.mana     = float(PLAYER_MAX_MANA)
+
+        # XP / Level
+        self.level          = 1
+        self.xp             = 0
+        self.xp_to_next     = XP_BASE
+        self._leveled_up_timer = 0.0   # > 0 = show "LEVEL UP!" flash
 
         # Combat state
         self.facing          = 1
@@ -214,9 +221,10 @@ class Player:
             self.mana = min(self.max_mana, self.mana + MANA_REGEN_RATE * dt)
 
         # Tick flash / input timers
-        if self.hit_flash      > 0: self.hit_flash      -= dt
-        if self._coyote_timer  > 0: self._coyote_timer  -= dt
-        if self._jump_buffer   > 0: self._jump_buffer   -= dt
+        if self.hit_flash          > 0: self.hit_flash          -= dt
+        if self._coyote_timer      > 0: self._coyote_timer      -= dt
+        if self._jump_buffer       > 0: self._jump_buffer       -= dt
+        if self._leveled_up_timer  > 0: self._leveled_up_timer  -= dt
 
         was_on_ground = self.on_ground
 
@@ -242,6 +250,21 @@ class Player:
     def take_damage(self, amount):
         self.health    = max(0, self.health - amount)
         self.hit_flash = 0.12   # flash white on taking any damage
+
+    def award_xp(self, amount: int):
+        """Add XP and trigger level-up(s) if threshold crossed."""
+        if self.level >= MAX_LEVEL:
+            return
+        self.xp += amount
+        while self.xp >= self.xp_to_next and self.level < MAX_LEVEL:
+            self.xp        -= self.xp_to_next
+            self.level     += 1
+            self.max_health += LEVEL_UP_HP
+            self.health     = min(self.health + LEVEL_UP_HP, self.max_health)
+            self.max_mana  += LEVEL_UP_MANA
+            self.mana       = min(self.mana + LEVEL_UP_MANA, self.max_mana)
+            self.xp_to_next = int(XP_BASE * (XP_SCALE ** (self.level - 1)))
+            self._leveled_up_timer = 2.5
 
     def reset_to(self, x, y):
         """Teleport player to (x, y) and zero out all motion state."""

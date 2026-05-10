@@ -24,6 +24,7 @@
 | `entities/player.py` | Player class — movement, physics, facing direction, attack cooldown, inventory, hotbar slot |
 | `entities/enemy.py` | Enemy class — health, hit-flash timer, take_damage(), alive flag, loot table |
 | `entities/item_drop.py` | World item drop — rect, item_id, quantity, color, alive flag, zone_drop_index |
+| `entities/chest.py` | Lootable chest — E key to open, transfers contents to inventory, persists open state |
 | `entities/npc.py` | NPC class — rect, name, color, dialogue lines, [E] Talk proximity prompt |
 | `entities/projectile.py` | Arrow projectile — physics (gravity + wind), platform collision, enemy hit, oriented line draw |
 
@@ -80,15 +81,19 @@
 | `systems/active_attacks.py` | Special attack objects — WaveAttack, AreaAttack, AuraAttack; updated and drawn by engine |
 | `systems/abilities.py` | AbilitySystem — reads abilities.json, dispatches to correct attack type, handles mana/item costs |
 | `systems/shop.py` | ShopSystem — loads shops.json, handles buy/sell transactions against player inventory + gold |
+| `systems/quests.py` | QuestSystem — loads quests.json, tracks kill/collect/zone progress, serializes for save |
 
 ## ui/ (additional)
 | File | Purpose |
 |------|---------|
 | `ui/inventory_screen.py` | 32-slot grid inventory (I key) — keyboard nav, use/drop items, hotbar mirrors first 8 slots |
 | `ui/shop_menu.py` | Shop overlay — buy/sell panel opened by pressing E near a shopkeeper NPC |
+| `ui/title_screen.py` | Title screen — New Game / Continue / Quit; shown on every startup |
+| `ui/quest_log.py` | Quest log overlay (J key) — active quest progress bars + completed list |
 
 ## data/ (additional)
 | File | Purpose |
 |------|---------|
 | `data/abilities.json` | All ability definitions — type, damage, status_effect, mana_cost, cooldown, color, sound |
 | `data/shops.json` | Shop definitions — name, buy_rate, inventory (item_id, price, stock) |
+| `data/quests.json` | Quest definitions — name, type (kill/collect/kill_any), target, count, XP+gold rewards |

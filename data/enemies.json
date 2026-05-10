@@ -2,6 +2,7 @@
   "basic": {
     "sprite":          "enemy_basic",
     "health":          100,
+    "xp_reward":       25,
     "width":            40,
     "height":           60,
     "speed":            80,
@@ -22,6 +23,7 @@
   "heavy": {
     "sprite":          "enemy_heavy",
     "health":          220,
+    "xp_reward":       80,
     "width":            52,
     "height":           72,
     "speed":            50,
@@ -42,6 +44,7 @@
   "fast": {
     "sprite":          "enemy_fast",
     "health":           60,
+    "xp_reward":       15,
     "width":            30,
     "height":           48,
     "speed":           130,

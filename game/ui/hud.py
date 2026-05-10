@@ -18,6 +18,7 @@ from game.settings import (
     ABILITY_SLOT_SIZE,
     WIND_MAX, WHITE,
     STATUS_COLORS,
+    XP_BAR_H, XP_BAR_BG, XP_BAR_FG, XP_BAR_BORDER,
 )
 
 _ITEM_MARGIN = 6
@@ -28,6 +29,7 @@ _WIND_HUD_Y  = 20
 
 _MANA_BAR_X = HUD_HEALTH_X
 _MANA_BAR_Y = HUD_HEALTH_Y + HUD_HEALTH_H + 5
+_XP_BAR_Y   = _MANA_BAR_Y + MANA_BAR_H + 4
 
 
 class HUD:
@@ -80,6 +82,12 @@ class HUD:
         # Health number cache: (hp_text, Surface)
         self._hp_cache = ("", None)
 
+        # XP / level cache
+        self._xp_cache    = (-1, -1, None)   # (xp, xp_to_next, Surface)
+        self._level_cache = (-1, None)        # (level, Surface)
+        self._levelup_font = pygame.font.SysFont(None, 36)
+        self._levelup_surf = self._levelup_font.render("LEVEL UP!", True, (255, 240, 80))
+
     # ------------------------------------------------------------------
     # Draw
     # ------------------------------------------------------------------
@@ -87,12 +95,14 @@ class HUD:
     def draw(self, screen, wind=0.0):
         self._draw_health_bar(screen)
         self._draw_mana_bar(screen)
+        self._draw_xp_bar(screen)
         self._draw_hotbar(screen)
         self._draw_ability_slots(screen)
         self._draw_wind(screen, wind)
         self._draw_arrow_count(screen)
         self._draw_gold(screen)
         self._draw_status_effects(screen)
+        self._draw_levelup_flash(screen)
 
     # ------------------------------------------------------------------
     # Health bar
@@ -259,6 +269,42 @@ class HUD:
             surf = self._wind_font.render(f"Arrows: {count}", True, (220, 200, 120))
             self._arrow_cache = (count, surf)
         screen.blit(self._arrow_cache[1], (_WIND_HUD_X, _WIND_HUD_Y + 28))
+
+    # ------------------------------------------------------------------
+    # XP bar + level
+    # ------------------------------------------------------------------
+
+    def _draw_xp_bar(self, screen):
+        p = self.player
+        x, y, w, h = HUD_HEALTH_X, _XP_BAR_Y, HUD_HEALTH_W, XP_BAR_H
+        pygame.draw.rect(screen, XP_BAR_BG, (x, y, w, h))
+        ratio  = p.xp / p.xp_to_next if p.xp_to_next > 0 else 1.0
+        fill_w = int(w * max(0.0, min(1.0, ratio)))
+        if fill_w > 0:
+            pygame.draw.rect(screen, XP_BAR_FG, (x, y, fill_w, h))
+        pygame.draw.rect(screen, XP_BAR_BORDER, (x, y, w, h), 1)
+
+        # Level badge (left of bar)
+        if self._level_cache[0] != p.level:
+            surf = self._hp_font.render(f"Lv{p.level}", True, (180, 200, 255))
+            self._level_cache = (p.level, surf)
+        screen.blit(self._level_cache[1], (x + w + 6, y - 2))
+
+        # XP numbers (small, right of level badge)
+        xp_key = (p.xp, p.xp_to_next)
+        if self._xp_cache[:2] != xp_key:
+            surf = self._num_font.render(f"{p.xp}/{p.xp_to_next}", True, (120, 140, 220))
+            self._xp_cache = (p.xp, p.xp_to_next, surf)
+        screen.blit(self._xp_cache[2], (x + w + 46, y))
+
+    def _draw_levelup_flash(self, screen):
+        if self.player._leveled_up_timer <= 0:
+            return
+        ratio = min(1.0, self.player._leveled_up_timer / 2.5)
+        self._levelup_surf.set_alpha(int(ratio * 255))
+        sx = SCREEN_WIDTH  // 2 - self._levelup_surf.get_width()  // 2
+        sy = SCREEN_HEIGHT // 2 - 80
+        screen.blit(self._levelup_surf, (sx, sy))
 
     # ------------------------------------------------------------------
     # Gold counter (below wind indicator)
