@@ -8,7 +8,8 @@
       "Bash(git push *)",
       "Bash(findstr /n /i \"quest chest xp_reward sell_value\" \"C:\\\\Users\\\\bobby\\\\survival-game\\\\tools\\\\editor.py\")",
       "Bash(Select-String -Path \"C:\\\\Users\\\\bobby\\\\survival-game\\\\tools\\\\editor.py\" -Pattern \"quest|Quest|chest|Chest|xp_reward|sell_value\")",
-      "Bash(Select-Object -First 30)"
+      "Bash(Select-Object -First 30)",
+      "Bash(git rm *)"
     ]
   }
 }
