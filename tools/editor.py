@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-tools/editor.py
-Survival Game — Content Editor  (run from project root: python tools/editor.py)
+Survival Game — Content Editor
+Can run standalone (anywhere) or from the project root.
+
+Usage:
+  python editor.py               — auto-detects data/ or prompts on first run
+  python editor.py /path/to/data — use this data directory directly
 
 Tabs:
   Enemies   — enemies.json  (stats, drops, xp_reward)
@@ -26,13 +30,74 @@ Zone editor controls:
 
 import json
 import os
+import sys
 import tkinter as tk
-from tkinter import ttk, messagebox, colorchooser, simpledialog
+from tkinter import ttk, messagebox, colorchooser, simpledialog, filedialog
 from pathlib import Path
 from copy import deepcopy
 
-_ROOT     = Path(__file__).parent.parent
-DATA_DIR  = _ROOT / "data"
+# ---------------------------------------------------------------------------
+# Data-directory resolution — works standalone or inside the project tree
+# ---------------------------------------------------------------------------
+
+_EDITOR_DIR  = Path(__file__).parent
+_CONFIG_FILE = _EDITOR_DIR / "editor_config.json"
+
+
+def _resolve_data_dir() -> Path:
+    """
+    Locate the game's data/ directory.  Priority:
+    1. Command-line argument  (python editor.py /some/path/data)
+    2. Sibling data/ directory  (in-project: tools/../data)
+    3. Saved config            (editor_config.json next to this file)
+    4. User dialog             (ask once, save for next time)
+    """
+    # 1. CLI argument
+    if len(sys.argv) > 1:
+        p = Path(sys.argv[1])
+        if p.is_dir():
+            return p
+
+    # 2. Sibling — works when editor.py is inside tools/ inside the project
+    sibling = _EDITOR_DIR.parent / "data"
+    if sibling.is_dir():
+        return sibling
+
+    # 3. Saved config
+    if _CONFIG_FILE.exists():
+        try:
+            cfg = json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+            saved = Path(cfg.get("data_dir", ""))
+            if saved.is_dir():
+                return saved
+        except Exception:
+            pass
+
+    # 4. Ask the user
+    root = tk.Tk(); root.withdraw()
+    messagebox.showinfo(
+        "Survival Game Editor — First Run",
+        "Select the 'data' folder inside your game installation.\n\n"
+        "Example:  C:/survival-game/data\n\n"
+        "This is only asked once; the path is saved to editor_config.json.",
+    )
+    chosen = filedialog.askdirectory(title="Select game 'data' folder")
+    root.destroy()
+    if not chosen:
+        messagebox.showerror("Editor", "No data folder selected. Editor cannot start.")
+        raise SystemExit(1)
+
+    p = Path(chosen)
+    try:
+        _CONFIG_FILE.write_text(
+            json.dumps({"data_dir": str(p)}, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass
+    return p
+
+
+DATA_DIR  = _resolve_data_dir()
 ZONES_DIR = DATA_DIR / "zones"
 
 # ---------------------------------------------------------------------------
@@ -1515,7 +1580,27 @@ class EditorApp(tk.Tk):
 
         menu=tk.Menu(self); self.config(menu=menu)
         fm=tk.Menu(menu,tearoff=False); menu.add_cascade(label="File",menu=fm)
-        fm.add_command(label="Exit",command=self.quit)
+        fm.add_command(label="Change game data folder…", command=self._change_data_dir)
+        fm.add_separator()
+        fm.add_command(label="Exit", command=self.quit)
+
+    def _change_data_dir(self):
+        chosen = filedialog.askdirectory(
+            title="Select game 'data' folder",
+            initialdir=str(DATA_DIR),
+        )
+        if not chosen:
+            return
+        try:
+            _CONFIG_FILE.write_text(
+                json.dumps({"data_dir": chosen}, indent=2), encoding="utf-8"
+            )
+        except Exception:
+            pass
+        messagebox.showinfo(
+            "Data folder updated",
+            f"Saved:\n{chosen}\n\nRestart the editor to load the new data.",
+        )
 
 if __name__ == "__main__":
     DATA_DIR.mkdir(parents=True,exist_ok=True)
