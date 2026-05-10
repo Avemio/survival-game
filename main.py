@@ -6,8 +6,12 @@ Run from the survival-game/ directory: python main.py
 """
 
 import sys
+import logging
 import traceback
 from game.core.engine import Engine
+
+logging.basicConfig(level=logging.WARNING,
+                    format="[%(levelname)s] %(name)s: %(message)s")
 
 
 if __name__ == "__main__":

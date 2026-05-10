@@ -23,12 +23,24 @@ class Camera:
         self._shake_x         = 0
         self._shake_y         = 0
 
+        # World bounds for clamping (0 = no clamp on that axis)
+        self._world_w = 0
+        self._world_h = 0
+
     def shake(self, intensity=4, duration=0.12):
         """Trigger a screen shake. A stronger shake overrides a weaker one."""
         if intensity > self._shake_intensity or self._shake_timer <= 0:
             self._shake_intensity = intensity
             self._shake_duration  = max(duration, 0.001)
             self._shake_timer     = duration
+
+    def set_bounds(self, world_w: int, world_h: int):
+        """
+        Set world-space size for camera clamping.
+        Call once per zone load. Pass 0 for either axis to disable clamping on that axis.
+        """
+        self._world_w = world_w
+        self._world_h = world_h
 
     def update(self, target, dt=0.0):
         """
@@ -38,6 +50,7 @@ class Camera:
 
         X snaps immediately (horizontal movement is fast and direct).
         Y lerps smoothly so the camera eases down on falls rather than snapping.
+        Camera is clamped to world bounds if set_bounds() was called.
         """
         target_x = float(target.centerx - SCREEN_WIDTH  // 2)
         target_y = float(target.centery - SCREEN_HEIGHT // 2)
@@ -46,6 +59,12 @@ class Camera:
             self.offset.y += (target_y - self.offset.y) * min(1.0, 8.0 * dt)
         else:
             self.offset.y = target_y
+
+        # Clamp to world bounds so camera never shows empty space past the edges
+        if self._world_w > 0:
+            self.offset.x = max(0.0, min(self.offset.x, self._world_w  - SCREEN_WIDTH))
+        if self._world_h > 0:
+            self.offset.y = max(0.0, min(self.offset.y, self._world_h  - SCREEN_HEIGHT))
 
         if self._shake_timer > 0:
             self._shake_timer -= dt

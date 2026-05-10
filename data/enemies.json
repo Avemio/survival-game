@@ -60,5 +60,30 @@
       {"item_id": "herb",  "quantity": 2, "chance": 0.7},
       {"item_id": "wood",  "quantity": 1, "chance": 0.5}
     ]
+  },
+  "archer": {
+    "sprite":          "enemy_archer",
+    "health":          70,
+    "xp_reward":       40,
+    "width":           34,
+    "height":          56,
+    "speed":           60,
+    "chase_speed":     100,
+    "aggro_range":     420,
+    "deaggro_range":   600,
+    "attack_range":    350,
+    "attack_damage":   0,
+    "attack_cooldown": 2.0,
+    "patrol_radius":   160,
+    "ai_type":         "ranged",
+    "proj_speed":      380,
+    "proj_damage":     12,
+    "proj_color":      [240, 180, 60],
+    "proj_gravity":    0,
+    "drops": [
+      {"item_id": "gold",  "quantity": 8,  "chance": 1.0},
+      {"item_id": "arrow", "quantity": 5,  "chance": 0.8},
+      {"item_id": "wood",  "quantity": 1,  "chance": 0.5}
+    ]
   }
 }

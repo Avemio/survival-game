@@ -27,9 +27,10 @@ from game.settings import (
     ENEMY_PATROL_RADIUS,
     GRAVITY, MAX_FALL_SPEED, JUMP_FORCE,
 )
-from game.systems.combat  import AttackHitbox
-from game.systems.assets  import get as _assets
-from game.systems.effects import tick_all
+from game.systems.combat     import AttackHitbox
+from game.entities.projectile import Projectile
+from game.systems.assets      import get as _assets
+from game.systems.effects     import tick_all
 
 
 class EnemyState(Enum):
@@ -82,6 +83,15 @@ class Enemy:
         self._attack_timer = 0.0
         self._windup_timer = 0.0
         self.active_hitbox = None
+
+        # Ranged AI: projectiles are appended to this list by _do_attack_tick
+        # Engine must pass it in via update(); empty list = melee enemy
+        self._ai_type        = stats.get("ai_type", "melee")  # "melee" or "ranged"
+        self._proj_speed     = float(stats.get("proj_speed",    400))
+        self._proj_damage    = int(stats.get("proj_damage",     15))
+        self._proj_color     = tuple(stats.get("proj_color",    [255, 160, 40]))
+        self._proj_gravity   = float(stats.get("proj_gravity",  0))   # 0 = flat shot
+        self.pending_projectiles: list = []   # engine reads these each frame
 
         # Cached probe rect for edge detection (avoids per-frame allocation)
         self._probe = pygame.Rect(0, 0, _EDGE_PROBE_W, _EDGE_PROBE_H)
@@ -146,16 +156,26 @@ class Enemy:
             if dist > self.deaggro_range:
                 self.state = EnemyState.PATROL
             elif dist <= self.attack_range:
-                # Close enough — stop and face the player; swing when cooldown allows
                 self.facing     = 1 if dx > 0 else -1
                 self.velocity.x = 0
                 if self._attack_timer <= 0:
                     self._begin_attack(dx)
             else:
-                self._do_chase(dx)
-                # Jump toward player if they're significantly above and we're grounded
-                if self.on_ground and player.rect.centery < self.rect.centery - 40:
-                    self.velocity.y = -JUMP_FORCE * 0.85
+                if self._ai_type == "ranged":
+                    # Ranged enemies stop at a comfortable shooting distance
+                    preferred = self.attack_range * 0.6
+                    if dist > preferred:
+                        self._do_chase(dx)
+                    else:
+                        self.facing     = 1 if dx > 0 else -1
+                        self.velocity.x = 0
+                        if self._attack_timer <= 0:
+                            self._begin_attack(dx)
+                else:
+                    self._do_chase(dx)
+                    # Melee enemies jump toward elevated player
+                    if self.on_ground and player.rect.centery < self.rect.centery - 40:
+                        self.velocity.y = -JUMP_FORCE * 0.85
 
         elif self.state == EnemyState.ATTACK:
             self._do_attack_tick(dt)
@@ -198,11 +218,27 @@ class Enemy:
     def _do_attack_tick(self, dt):
         self.velocity.x    = 0
         self._windup_timer -= dt
-        # Spawn hitbox once wind-up finishes (and no hitbox already active)
         if self._windup_timer <= 0 and self.active_hitbox is None:
-            self.active_hitbox = AttackHitbox(self, self.attack_damage)
+            if self._ai_type == "ranged":
+                # Fire a projectile toward the player (facing is already set)
+                vx = self._proj_speed * self.facing
+                proj = Projectile(
+                    self.rect.centerx - 7, self.rect.centery - 2,
+                    vx, 0,
+                    damage        = self._proj_damage,
+                    gravity_factor= self._proj_gravity / 550.0 if self._proj_gravity else 0.0,
+                    wind_affected = False,
+                    width         = 14,
+                    height        = 4,
+                    pierce        = False,
+                    color         = self._proj_color,
+                    owner         = "enemy",
+                )
+                self.pending_projectiles.append(proj)
+            else:
+                self.active_hitbox = AttackHitbox(self, self.attack_damage)
             self._attack_timer = self.attack_cooldown
-            self.state         = EnemyState.CHASE   # hitbox lives on; engine clears it
+            self.state         = EnemyState.CHASE
 
     # ------------------------------------------------------------------
     # Physics + collision resolution

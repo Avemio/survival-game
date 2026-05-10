@@ -114,6 +114,8 @@ class Zone:
         self.spawn       = (0, 0)
         self.bg_color    = BG_COLOR
         self.music       = None
+        self.world_w     = 0   # 0 = no camera clamping
+        self.world_h     = 0
 
         self._load(Path(path), enemy_types, item_defs, npc_types, dialogue_data)
 
@@ -122,10 +124,13 @@ class Zone:
             data = json.load(f)
 
         self.id       = data.get("id", path.stem)
-        self.spawn    = tuple(data.get("spawn") or [200, 580])
+        self.spawn    = tuple(data.get("spawn") or [0, 0])
         self.music    = data.get("music")
         raw_bg        = data.get("bg_color")
         self.bg_color = tuple(raw_bg) if raw_bg else BG_COLOR
+        wb            = data.get("world_bounds")
+        if wb and len(wb) >= 2:
+            self.world_w, self.world_h = int(wb[0]), int(wb[1])
 
         for p in data.get("platforms", []):
             self.platforms.append(

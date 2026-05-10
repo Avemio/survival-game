@@ -20,7 +20,8 @@ class Projectile:
                  height=4,
                  pierce=False,
                  color=None,
-                 status_def=None):
+                 status_def=None,
+                 owner="player"):   # "player" or "enemy"
         self.pos      = pygame.math.Vector2(x, y)
         self.velocity = pygame.math.Vector2(vx, vy)
         self.rect     = pygame.Rect(x, y, width, height)
@@ -30,6 +31,7 @@ class Projectile:
 
         self._gravity      = ARROW_GRAVITY * gravity_factor
         self._wind_affected = wind_affected
+        self.owner          = owner   # determines what it can hit
         self._pierce        = pierce
         self._color         = tuple(color) if color else ARROW_COLOR
         self._status_def    = status_def

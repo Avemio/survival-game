@@ -1,31 +1,102 @@
 {
   "id": "zone_01_interior",
-  "spawn": [120, 316],
-  "bg_color": [18, 14, 10],
+  "spawn": [
+    120,
+    316
+  ],
+  "bg_color": [
+    18,
+    14,
+    10
+  ],
   "platforms": [
-    {"x": 0,   "y": 380, "w": 600, "h": 20, "label": "floor"},
-    {"x": 0,   "y": 0,   "w": 20,  "h": 400, "label": "left_wall"},
-    {"x": 580, "y": 0,   "w": 20,  "h": 400, "label": "right_wall"},
-    {"x": 0,   "y": 0,   "w": 600, "h": 20,  "label": "ceiling"},
-    {"x": 150, "y": 280, "w": 120, "h": 16},
-    {"x": 330, "y": 200, "w": 120, "h": 16}
+    {
+      "x": 0,
+      "y": 380,
+      "w": 600,
+      "h": 20,
+      "label": "floor"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "w": 20,
+      "h": 400,
+      "label": "left_wall"
+    },
+    {
+      "x": 580,
+      "y": 0,
+      "w": 20,
+      "h": 400,
+      "label": "right_wall"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "w": 600,
+      "h": 20,
+      "label": "ceiling"
+    },
+    {
+      "x": 150,
+      "y": 280,
+      "w": 120,
+      "h": 16
+    },
+    {
+      "x": 330,
+      "y": 200,
+      "w": 120,
+      "h": 16
+    }
   ],
   "save_points": [
-    {"x": 60, "y": 316, "w": 50, "h": 64}
+    {
+      "x": 60,
+      "y": 316,
+      "w": 50,
+      "h": 64
+    }
   ],
   "item_drops": [
-    {"item_id": "herb",  "quantity": 2, "x": 200, "y": 360},
-    {"item_id": "stone", "quantity": 3, "x": 280, "y": 360},
-    {"item_id": "wood",  "quantity": 4, "x": 360, "y": 360}
+    {
+      "item_id": "herb",
+      "quantity": 2,
+      "x": 200,
+      "y": 360
+    },
+    {
+      "item_id": "stone",
+      "quantity": 3,
+      "x": 280,
+      "y": 360
+    },
+    {
+      "item_id": "wood",
+      "quantity": 4,
+      "x": 360,
+      "y": 360
+    }
   ],
   "enemies": [],
   "npcs": [],
   "exits": [
     {
-      "x": 20, "y": 316, "w": 40, "h": 64,
+      "x": 20,
+      "y": 316,
+      "w": 40,
+      "h": 64,
       "target_zone": "zone_01",
-      "spawn_override": [800, 596]
+      "spawn_override": [
+        800,
+        596
+      ]
     }
   ],
-  "buildings": []
+  "buildings": [],
+  "world_bounds": [
+    600,
+    400
+  ]
 }

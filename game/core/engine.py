@@ -34,6 +34,7 @@ from game.ui.dialogue         import DialogueBox
 from game.ui.pause_menu       import PauseMenu
 from game.ui.inventory_screen import InventoryScreen
 from game.ui.title_screen     import TitleScreen
+from game.ui.minimap          import Minimap
 from game.systems.assets      import get as _assets
 from game.systems.saving      import save_game, load_game
 from game.systems.crafting    import CraftingSystem
@@ -142,6 +143,7 @@ class Engine:
         self.shop_menu        = ShopMenu(self.player, self.shop_system)
         self.quest_log        = QuestLog(self.quest_system)
         self.notifications    = NotificationQueue()
+        self.minimap          = Minimap()
 
         # Item use dispatch — add new use types here or via register_item_use()
         self._item_use_handlers = {
@@ -432,6 +434,10 @@ class Engine:
         living = []
         for enemy in self.enemies:
             enemy.update(dt, self.player, self.platforms)
+            # Collect any projectiles fired by ranged enemies this frame
+            if enemy.pending_projectiles:
+                self.projectiles.extend(enemy.pending_projectiles)
+                enemy.pending_projectiles.clear()
             if enemy.alive:
                 living.append(enemy)
             else:
@@ -694,9 +700,10 @@ class Engine:
         self.active_attacks[:] = [a for a in self.active_attacks if a.alive]
 
     def _on_zone_loaded(self):
-        """Called whenever the active zone changes — starts zone music if defined."""
+        """Called whenever the active zone changes — starts music and updates camera bounds."""
         if self.world.music:
             _assets().play_music(self.world.music)
+        self.camera.set_bounds(self.world.world_w, self.world.world_h)
 
     def _update_wind(self, dt):
         self._wind_timer -= dt
@@ -772,12 +779,24 @@ class Engine:
             proj.update(dt, self.platforms, self.wind)
             if not proj.alive:
                 continue
-            for enemy in self.enemies:
-                if proj.rect.colliderect(enemy.rect):
-                    if proj.hit(enemy):
-                        self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 4)
-                    if not proj.alive:
-                        break
+            if proj.owner == "enemy":
+                # Enemy projectiles hit the player
+                if proj.rect.colliderect(self.player.rect):
+                    if proj.hit(self.player):   # proj.hit() calls player.take_damage()
+                        _assets().play("player_hit")
+                        self.camera.shake(intensity=3, duration=0.12)
+                        self._spawn_hit_particles(self.player.rect.center, PLAYER_COLOR, 5)
+                        self._spawn_damage_number(
+                            self.player.rect.centerx, self.player.rect.top - 4,
+                            proj.damage, color=(255, 80, 80))
+            else:
+                # Player projectiles hit enemies
+                for enemy in self.enemies:
+                    if proj.rect.colliderect(enemy.rect):
+                        if proj.hit(enemy):
+                            self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 4)
+                        if not proj.alive:
+                            break
         self.projectiles[:] = [p for p in self.projectiles if p.alive]
 
     def _start_aim(self):
@@ -1027,6 +1046,9 @@ class Engine:
 
         # HUD — drawn last, in screen space (no camera offset)
         self.hud.draw(self.screen, self.wind)
+
+        # Minimap — over HUD, top-right
+        self.minimap.draw(self.screen, self)
 
         # Crafting menu — drawn over HUD when open
         self.crafting_menu.draw(self.screen)
