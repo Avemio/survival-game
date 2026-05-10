@@ -52,8 +52,7 @@ class Chest:
 
         # Prompt overhead when player is nearby and chest is still closed
         if not self.open and self.interact_rect.colliderect(player_rect):
-            pr = camera.apply(self.rect)
-            px = pr.centerx - self._prompt_surf.get_width()  // 2
-            py = pr.top     - self._prompt_surf.get_height() - 4
+            px = r[0] + r[2] // 2 - self._prompt_surf.get_width() // 2
+            py = r[1] - self._prompt_surf.get_height() - 4
             screen.blit(self._prompt_shadow, (px + 1, py + 1))
             screen.blit(self._prompt_surf,   (px,     py))

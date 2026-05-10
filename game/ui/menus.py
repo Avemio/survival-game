@@ -66,6 +66,11 @@ class CraftingMenu:
         self._title_surf  = self._font_title.render("CRAFTING", True, CRAFT_TITLE_COLOR)
         hint_text         = "↑↓  Navigate      Enter  Craft      C / Esc  Close"
         self._footer_surf = self._font_foot.render(hint_text, True, CRAFT_FOOTER_COLOR)
+        self._cursor_surf = self._font_name.render("▶", True, CRAFT_TITLE_COLOR)
+
+        # Per-row pre-rendered surfaces — rebuilt when menu opens or after a craft
+        self._row_surfs: list = []  # list of (name_surf, [(ing_surf, ok)], craftable)
+        self._feedback_surf = None  # pre-rendered feedback surface
 
     # ------------------------------------------------------------------
     # State
@@ -76,6 +81,7 @@ class CraftingMenu:
         if self.open:
             self._cursor = 0
             self._feedback_timer = 0.0
+            self._rebuild_surfs()
 
     def close(self):
         self.open = False
@@ -113,6 +119,27 @@ class CraftingMenu:
     # Crafting
     # ------------------------------------------------------------------
 
+    def _rebuild_surfs(self):
+        """Pre-render all recipe/ingredient surfaces (called on open and after craft)."""
+        inv = self.player.inventory
+        self._row_surfs = []
+        for recipe_id, recipe_def in self._recipe_list:
+            craftable  = self.crafter.can_craft(recipe_id, inv)
+            name_color = CRAFT_RECIPE_COLOR if craftable else CRAFT_RECIPE_DIM
+            count      = recipe_def.get("count", 1)
+            name_surf  = self._font_name.render(
+                f"{recipe_def['name']}  ×{count}", True, name_color)
+            ing_surfs  = []
+            for item_id, qty_needed in recipe_def["ingredients"].items():
+                have      = inv.count(item_id)
+                ok        = have >= qty_needed
+                ing_color = CRAFT_INGREDIENT_OK if ok else CRAFT_INGREDIENT_MISS
+                item_name = inv.get_def(item_id).get("name", item_id)
+                ing_surf  = self._font_ing.render(
+                    f"{item_name}:  {have} / {qty_needed}", True, ing_color)
+                ing_surfs.append(ing_surf)
+            self._row_surfs.append((name_surf, ing_surfs, craftable))
+
     def _try_craft(self):
         if not self._recipe_list:
             return
@@ -123,11 +150,14 @@ class CraftingMenu:
             name  = recipe_def.get("name", recipe_id)
             self._feedback_text  = f"Crafted {name}  ×{count}!"
             self._feedback_timer = 1.8
+            self._feedback_surf  = self._font_name.render(self._feedback_text, True, WHITE)
             _assets().play("craft_success")
         else:
             self._feedback_text  = "Not enough materials."
             self._feedback_timer = 1.2
+            self._feedback_surf  = self._font_name.render(self._feedback_text, True, WHITE)
             _assets().play("craft_fail")
+        self._rebuild_surfs()   # inventory changed; re-render craftable states
 
     # ------------------------------------------------------------------
     # Draw
@@ -163,66 +193,41 @@ class CraftingMenu:
         self._draw_footer(screen)
 
     def _draw_recipes(self, screen, start_y):
-        inv   = self.player.inventory
         y     = start_y
         x     = self._px + _PADDING
-        max_y = self._py + CRAFT_PANEL_H - _FOOTER_H - 8   # don't draw over footer
+        max_y = self._py + CRAFT_PANEL_H - _FOOTER_H - 8
 
-        for idx, (recipe_id, recipe_def) in enumerate(self._recipe_list):
-            craftable = self.crafter.can_craft(recipe_id, inv)
-            selected  = (idx == self._cursor)
-
-            # Row height for this recipe: name + one row per ingredient
+        for idx, ((recipe_id, recipe_def), (name_surf, ing_surfs, craftable)) in enumerate(
+                zip(self._recipe_list, self._row_surfs)):
+            selected = (idx == self._cursor)
             n_ings   = len(recipe_def["ingredients"])
             row_h    = _RECIPE_NAME_H + n_ings * _INGREDIENT_H
 
-            # Stop drawing if this row would overflow the panel
             if y + row_h > max_y:
                 break
 
-            # Highlight background for selected row
             if selected:
-                highlight = pygame.Rect(
-                    self._px + 4, y - 3,
-                    CRAFT_PANEL_W - 8, row_h + 6
-                )
-                pygame.draw.rect(screen, CRAFT_SELECTED_BG, highlight, border_radius=4)
+                pygame.draw.rect(screen, CRAFT_SELECTED_BG,
+                                 (self._px + 4, y - 3, CRAFT_PANEL_W - 8, row_h + 6),
+                                 border_radius=4)
 
-            # Recipe name  (dimmed if not craftable)
-            count       = recipe_def.get("count", 1)
-            name_text   = f"{recipe_def['name']}  ×{count}"
-            name_color  = CRAFT_RECIPE_COLOR if craftable else CRAFT_RECIPE_DIM
-            name_surf   = self._font_name.render(name_text, True, name_color)
+            # Blit pre-rendered surfaces — no render calls here
             screen.blit(name_surf, (x + 8, y + 4))
-
-            # Cursor indicator
             if selected:
-                cursor_surf = self._font_name.render("▶", True, CRAFT_TITLE_COLOR)
-                screen.blit(cursor_surf, (x - 4, y + 4))
+                screen.blit(self._cursor_surf, (x - 4, y + 4))
 
             y += _RECIPE_NAME_H
-
-            # Ingredients
-            for item_id, qty_needed in recipe_def["ingredients"].items():
-                have      = inv.count(item_id)
-                ok        = have >= qty_needed
-                ing_color = CRAFT_INGREDIENT_OK if ok else CRAFT_INGREDIENT_MISS
-
-                item_name = inv.get_def(item_id).get("name", item_id)
-                ing_text  = f"{item_name}:  {have} / {qty_needed}"
-                ing_surf  = self._font_ing.render(ing_text, True, ing_color)
+            for ing_surf in ing_surfs:
                 screen.blit(ing_surf, (x + 20, y + 2))
                 y += _INGREDIENT_H
-
             y += _RECIPE_GAP
 
-        # Feedback message (crafted / not enough)
-        if self._feedback_timer > 0:
+        # Feedback — pre-rendered surface, only set_alpha changes per frame
+        if self._feedback_timer > 0 and self._feedback_surf:
             alpha = min(255, int(self._feedback_timer * 300))
-            fb_surf = self._font_name.render(self._feedback_text, True, WHITE)
-            fb_surf.set_alpha(alpha)
-            screen.blit(fb_surf, (
-                self._px + (CRAFT_PANEL_W - fb_surf.get_width()) // 2,
+            self._feedback_surf.set_alpha(alpha)
+            screen.blit(self._feedback_surf, (
+                self._px + (CRAFT_PANEL_W - self._feedback_surf.get_width()) // 2,
                 self._py + CRAFT_PANEL_H - _FOOTER_H - 32
             ))
 

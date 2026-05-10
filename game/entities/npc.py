@@ -70,8 +70,9 @@ class NPC:
 
         # Overhead prompt when player is within interact range
         if self._prompt_surf and self.interact_rect.colliderect(player_rect):
-            r  = camera.apply(self.rect)
-            px = r.centerx - self._prompt_surf.get_width() // 2
-            py = r.top - self._prompt_surf.get_height() - 5
+            # Derive screen-space center/top from the already-computed tuple (no second Rect alloc)
+            sw = self._prompt_surf.get_width()
+            px = r[0] + r[2] // 2 - sw // 2
+            py = r[1] - self._prompt_surf.get_height() - 5
             screen.blit(self._prompt_shadow, (px + 1, py + 1))
             screen.blit(self._prompt_surf,   (px,     py))

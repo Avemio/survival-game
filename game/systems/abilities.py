@@ -30,6 +30,7 @@ class AbilitySystem:
     def __init__(self):
         with open(_DATA_DIR / "abilities.json") as f:
             self.defs: dict = json.load(f)
+        self._spawners: dict = self._build_spawner_registry()
 
     # ------------------------------------------------------------------
     # Query
@@ -53,6 +54,23 @@ class AbilitySystem:
     # Execution — called by engine
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Ability type dispatch — add new types here without touching execute()
+    # ------------------------------------------------------------------
+
+    def _build_spawner_registry(self) -> dict:
+        return {
+            "melee":      self._spawn_melee,
+            "projectile": self._spawn_projectile,
+            "wave":       self._spawn_wave,
+            "area":       self._spawn_area,
+            "aura":       self._spawn_aura,
+        }
+
+    def register_type(self, type_name: str, spawner) -> None:
+        """Register a new ability type at runtime (e.g. from a mod or expansion)."""
+        self._spawners[type_name] = spawner
+
     def execute(self, ability_id: str, owner, engine) -> bool:
         """
         Fire ability_id from owner.  Returns True if it fired.
@@ -67,22 +85,21 @@ class AbilitySystem:
         if not ab or not self.can_use(ability_id, owner):
             return False
 
-        # Consume mana
         mana_cost = ab.get("mana_cost", 0)
         if mana_cost > 0 and hasattr(owner, "mana"):
             owner.mana = max(0, owner.mana - mana_cost)
 
-        # Consume item if required
         consume = ab.get("consumes_item")
         if consume and hasattr(owner, "inventory"):
             owner.inventory.consume(consume, 1)
 
         ab_type = ab.get("type", "melee")
-        if   ab_type == "melee":      self._spawn_melee(owner, ab, engine)
-        elif ab_type == "projectile": self._spawn_projectile(owner, ab, engine)
-        elif ab_type == "wave":       self._spawn_wave(owner, ab, engine)
-        elif ab_type == "area":       self._spawn_area(owner, ab, engine)
-        elif ab_type == "aura":       self._spawn_aura(owner, ab, engine)
+        spawner = self._spawners.get(ab_type)
+        if spawner:
+            spawner(owner, ab, engine)
+        else:
+            import logging
+            logging.warning("AbilitySystem: unknown ability type %r for %r", ab_type, ability_id)
 
         return True
 

@@ -143,12 +143,18 @@ class Engine:
         self.quest_log        = QuestLog(self.quest_system)
         self.notifications    = NotificationQueue()
 
+        # Item use dispatch — add new use types here or via register_item_use()
+        self._item_use_handlers = {
+            "heal":          self._use_heal,
+            "equip_ability": self._use_equip_ability,
+        }
+
         # Title screen — always shown first on startup
         self._state       = GameState.TITLE
         self._title_screen = TitleScreen(has_save=save_data is not None)
 
-        # monster_slayer is always active — no NPC required
-        self.quest_system.start("monster_slayer")
+        # Auto-start any quests flagged auto_start: true in quests.json
+        self.quest_system.auto_start_all()
 
         # Death overlay — all surfaces built once at init (never inside draw)
         self.death_timer    = 0.0
@@ -218,8 +224,8 @@ class Engine:
         self.player.reset_to(*self.world.spawn)
         self._warm_save_points()
         self.camera.update(self.player.rect, 0.0)
-        # Re-ensure the always-active quest is running after a fresh start
-        self.quest_system.start("monster_slayer")
+        # Re-start any auto_start quests after a fresh game (quests.json drives this)
+        self.quest_system.auto_start_all()
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -779,28 +785,34 @@ class Engine:
         self._use_inventory_slot(self.player.hotbar_slot)
 
     def _use_inventory_slot(self, slot_idx: int):
-        """Consume one of the item in slot_idx and apply its use effect."""
+        """Consume one of the item in slot_idx and apply its use effect via registry."""
         slot = self.player.inventory.slots[slot_idx]
         if not slot:
             return
         item_def = self.player.inventory.item_defs.get(slot.item_id, {})
-        use = item_def.get("use")
-        if use == "heal":
-            if self.player.health >= self.player.max_health:
-                return
-            heal = item_def.get("heal_amount", 0)
-            self.player.health = min(self.player.max_health, self.player.health + heal)
+        use      = item_def.get("use")
+        handler  = self._item_use_handlers.get(use)
+        if handler:
+            handler(slot_idx, slot, item_def)
+
+    # Handlers registered by use-type string — add new item use types here,
+    # not inside _use_inventory_slot.
+    def _use_heal(self, slot_idx, slot, item_def):
+        if self.player.health >= self.player.max_health:
+            return
+        heal = item_def.get("heal_amount", 0)
+        self.player.health = min(self.player.max_health, self.player.health + heal)
+        self.player.inventory.remove(slot_idx, 1)
+
+    def _use_equip_ability(self, slot_idx, slot, item_def):
+        ability_id = item_def.get("ability_id")
+        if ability_id:
+            idx = next(
+                (i for i, s in enumerate(self.player.ability_slots) if s is None), 0
+            )
+            self.player.ability_slots[idx] = ability_id
             self.player.inventory.remove(slot_idx, 1)
-        elif use == "equip_ability":
-            ability_id = item_def.get("ability_id")
-            if ability_id:
-                # First empty slot; if both full, overwrite slot 0
-                idx = next(
-                    (i for i, s in enumerate(self.player.ability_slots) if s is None), 0
-                )
-                self.player.ability_slots[idx] = ability_id
-                self.player.inventory.remove(slot_idx, 1)
-                _assets().play("ui_confirm")
+            _assets().play("ui_confirm")
 
     def _drop_inventory_slot(self, slot_idx: int):
         """Drop the item in slot_idx at the player's feet."""

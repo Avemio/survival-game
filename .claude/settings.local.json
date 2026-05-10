@@ -9,7 +9,11 @@
       "Bash(findstr /n /i \"quest chest xp_reward sell_value\" \"C:\\\\Users\\\\bobby\\\\survival-game\\\\tools\\\\editor.py\")",
       "Bash(Select-String -Path \"C:\\\\Users\\\\bobby\\\\survival-game\\\\tools\\\\editor.py\" -Pattern \"quest|Quest|chest|Chest|xp_reward|sell_value\")",
       "Bash(Select-Object -First 30)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(start \"\" \"C:\\\\Users\\\\bobby\\\\survival-game\\\\GAME_GUIDE.md\")",
+      "Bash(start \"\" \"C:\\\\Users\\\\bobby\\\\survival-game\\\\EDITOR_GUIDE.md\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\bobby\\\\survival-game\\\\dist\" -ErrorAction SilentlyContinue)",
+      "Bash(Write-Host \"Cleared\")"
     ]
   }
 }

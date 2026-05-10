@@ -66,9 +66,17 @@ class ShopMenu:
         self._overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         self._overlay.fill((0, 0, 0, 150))
 
+        # Pre-rendered static tab and cursor surfaces
+        self._tab_buy_on  = self._font_tab.render("BUY",  True, CRAFT_TITLE_COLOR)
+        self._tab_buy_off = self._font_tab.render("BUY",  True, _DIM_COLOR)
+        self._tab_sell_on = self._font_tab.render("SELL", True, CRAFT_TITLE_COLOR)
+        self._tab_sell_off= self._font_tab.render("SELL", True, _DIM_COLOR)
+        self._cursor_surf = self._font_item.render("▶", True, CRAFT_TITLE_COLOR)
+
         # Dynamic state rebuilt on open/mode-switch/transaction
-        self._rows: list[dict]         = []   # {item_id, name, price_or_sv, can, qty, stock}
+        self._rows: list[dict]         = []   # row data dicts
         self._name_surfs: list         = []   # pre-rendered item name surfaces
+        self._detail_surfs: list       = []   # pre-rendered price/stock/sv/qty surfs
         self._gold_cache: tuple        = (-1, None)
         self._title_surf               = None
         self._fb_surf                  = None
@@ -176,6 +184,7 @@ class ShopMenu:
     def _rebuild(self):
         self._rows.clear()
         self._name_surfs.clear()
+        self._detail_surfs.clear()
         inv      = self.player.inventory
         item_defs= inv.item_defs
         gold     = inv.count("gold")
@@ -195,8 +204,13 @@ class ShopMenu:
                     "price": price, "can": can, "stock": stock,
                 })
                 color = CRAFT_INGREDIENT_OK if can else _DIM_COLOR
-                surf  = self._font_item.render(name, True, color)
-                self._name_surfs.append(surf)
+                self._name_surfs.append(self._font_item.render(name, True, color))
+                # Pre-render price and stock detail surfs
+                pc = CRAFT_INGREDIENT_OK if can else CRAFT_INGREDIENT_MISS
+                ps = self._font_item.render(f"{price}g", True, pc)
+                ss = self._font_item.render(f"x{stock}", True, _DIM_COLOR) if stock >= 0 else None
+                oos = self._font_hint.render("Out of stock", True, CRAFT_INGREDIENT_MISS) if stock == 0 else None
+                self._detail_surfs.append({"price": ps, "stock": ss, "oos": oos})
 
         else:  # sell mode — show player items that have sell_value
             seen_ids = set()
@@ -215,8 +229,10 @@ class ShopMenu:
                     "item_id": slot.item_id, "name": name,
                     "sell_value": sv, "qty": qty,
                 })
-                surf = self._font_item.render(name, True, WHITE)
-                self._name_surfs.append(surf)
+                self._name_surfs.append(self._font_item.render(name, True, WHITE))
+                sv_s  = self._font_item.render(f"+{sv}g", True, _GOLD_COLOR)
+                qty_s = self._font_item.render(f"x{qty}", True, _DIM_COLOR)
+                self._detail_surfs.append({"sv": sv_s, "qty": qty_s})
 
     # ------------------------------------------------------------------
     # Draw
@@ -252,18 +268,21 @@ class ShopMenu:
         pygame.draw.line(screen, CRAFT_PANEL_BORDER,
                          (px + _PAD, div1_y), (px + _PANEL_W - _PAD, div1_y))
 
-        # ---- Mode tabs ----
-        tab_y  = div1_y + 6
-        tab_h  = 26
-        tab_w  = 80
-        for i, (label, mode) in enumerate([("BUY", "buy"), ("SELL", "sell")]):
-            tx = px + _PAD + i * (tab_w + 8)
-            bg = _TAB_ON_BG if self._mode == mode else _TAB_OFF_BG
+        # ---- Mode tabs (pre-rendered surfs) ----
+        tab_y = div1_y + 6
+        tab_h = 26
+        tab_w = 80
+        for i, (on_s, off_s, mode) in enumerate([
+            (self._tab_buy_on,  self._tab_buy_off,  "buy"),
+            (self._tab_sell_on, self._tab_sell_off, "sell"),
+        ]):
+            tx  = px + _PAD + i * (tab_w + 8)
+            active = self._mode == mode
+            bg  = _TAB_ON_BG if active else _TAB_OFF_BG
             pygame.draw.rect(screen, bg, (tx, tab_y, tab_w, tab_h), border_radius=4)
-            border_clr = CRAFT_TITLE_COLOR if self._mode == mode else CRAFT_PANEL_BORDER
-            pygame.draw.rect(screen, border_clr, (tx, tab_y, tab_w, tab_h), 1, border_radius=4)
-            ts = self._font_tab.render(label, True,
-                                       CRAFT_TITLE_COLOR if self._mode == mode else _DIM_COLOR)
+            bclr = CRAFT_TITLE_COLOR if active else CRAFT_PANEL_BORDER
+            pygame.draw.rect(screen, bclr, (tx, tab_y, tab_w, tab_h), 1, border_radius=4)
+            ts = on_s if active else off_s
             screen.blit(ts, (tx + (tab_w - ts.get_width()) // 2,
                              tab_y + (tab_h - ts.get_height()) // 2))
 
@@ -283,48 +302,32 @@ class ShopMenu:
             screen.blit(no_items, (px + _PAD, items_top + 10))
 
         for i in range(max_rows):
-            row  = self._rows[i]
             ry   = items_top + i * _ROW_H
+            mid_y = ry + (_ROW_H - self._name_surfs[i].get_height()) // 2
 
-            # Selection highlight
             if i == self._cursor:
                 pygame.draw.rect(screen, CRAFT_SELECTED_BG,
                                  (px + 4, ry - 2, _PANEL_W - 8, _ROW_H - 2),
                                  border_radius=3)
-                # Cursor arrow
-                arrow = self._font_item.render("▶", True, CRAFT_TITLE_COLOR)
-                screen.blit(arrow, (px + 6, ry + (_ROW_H - arrow.get_height()) // 2))
+                screen.blit(self._cursor_surf,
+                            (px + 6, ry + (_ROW_H - self._cursor_surf.get_height()) // 2))
 
-            # Item name (pre-rendered)
-            name_surf = self._name_surfs[i]
-            screen.blit(name_surf, (px + _PAD + 14, ry + (_ROW_H - name_surf.get_height()) // 2))
+            screen.blit(self._name_surfs[i], (px + _PAD + 14, mid_y))
 
+            det = self._detail_surfs[i]
             if self._mode == "buy":
-                # Price
-                price_str = f"{row['price']}g"
-                pc = CRAFT_INGREDIENT_OK if row["can"] else CRAFT_INGREDIENT_MISS
-                ps = self._font_item.render(price_str, True, pc)
-                screen.blit(ps, (px + _PANEL_W - _PAD - ps.get_width() - 90,
-                                 ry + (_ROW_H - ps.get_height()) // 2))
-                # Stock
-                stock = row["stock"]
-                if stock >= 0:
-                    st_s = self._font_item.render(f"x{stock}", True, _DIM_COLOR)
-                    screen.blit(st_s, (px + _PANEL_W - _PAD - st_s.get_width(),
-                                       ry + (_ROW_H - st_s.get_height()) // 2))
-                # Can't afford / out of stock label
-                if stock == 0:
-                    label = self._font_hint.render("Out of stock", True, CRAFT_INGREDIENT_MISS)
-                    screen.blit(label, (px + _PANEL_W - _PAD - label.get_width() - 80,
-                                        ry + (_ROW_H - label.get_height()) // 2))
-
-            else:  # sell mode
-                sv_s = self._font_item.render(f"+{row['sell_value']}g", True, _GOLD_COLOR)
-                screen.blit(sv_s, (px + _PANEL_W - _PAD - sv_s.get_width() - 60,
-                                   ry + (_ROW_H - sv_s.get_height()) // 2))
-                qty_s = self._font_item.render(f"x{row['qty']}", True, _DIM_COLOR)
-                screen.blit(qty_s, (px + _PANEL_W - _PAD - qty_s.get_width(),
-                                    ry + (_ROW_H - qty_s.get_height()) // 2))
+                ps = det["price"]
+                screen.blit(ps, (px + _PANEL_W - _PAD - ps.get_width() - 90, mid_y))
+                if det["stock"] is not None:
+                    ss = det["stock"]
+                    screen.blit(ss, (px + _PANEL_W - _PAD - ss.get_width(), mid_y))
+                if det["oos"] is not None:
+                    oos = det["oos"]
+                    screen.blit(oos, (px + _PANEL_W - _PAD - oos.get_width() - 80, mid_y))
+            else:
+                sv_s = det["sv"]; qty_s = det["qty"]
+                screen.blit(sv_s,  (px + _PANEL_W - _PAD - sv_s.get_width()  - 60, mid_y))
+                screen.blit(qty_s, (px + _PANEL_W - _PAD - qty_s.get_width(),       mid_y))
 
         # ---- Feedback ----
         fb_y = py + _PANEL_H - 62

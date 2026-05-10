@@ -74,6 +74,17 @@ class QuestSystem:
         self._active[quest_id] = {"progress": 0}
         return True
 
+    def auto_start_all(self) -> list[str]:
+        """Start every quest that has auto_start: true in its definition.
+        Call on game-start and after loading save data (quests.json drives this,
+        so no engine code changes are needed to add auto-starting quests).
+        """
+        started = []
+        for qid, q in self._defs.items():
+            if q.get("auto_start") and self.start(qid):
+                started.append(qid)
+        return started
+
     def notify(self, event_type: str, **kwargs) -> list[str]:
         """
         Advance quest progress for matching active quests.

@@ -64,14 +64,16 @@ class Projectile:
         return True
 
     def draw(self, screen, camera):
-        angle  = math.degrees(math.atan2(-self.velocity.y, self.velocity.x))
-        length = self._w
-        rad    = math.radians(angle)
+        # Use atan2 result directly as radians — no pointless degrees round-trip
+        rad   = math.atan2(-self.velocity.y, self.velocity.x)
+        cos_r = math.cos(rad)
+        sin_r = math.sin(rad)
+        half  = self._w * 0.5
 
-        tip_x  = self.pos.x + math.cos(rad)  * length * 0.5
-        tip_y  = self.pos.y - math.sin(rad)  * length * 0.5
-        tail_x = self.pos.x - math.cos(rad)  * length * 0.5
-        tail_y = self.pos.y + math.sin(rad)  * length * 0.5
+        tip_x  = self.pos.x + cos_r * half
+        tip_y  = self.pos.y - sin_r * half
+        tail_x = self.pos.x - cos_r * half
+        tail_y = self.pos.y + sin_r * half
 
         cx, cy = camera.world_to_screen(tip_x,  tip_y)
         tx, ty = camera.world_to_screen(tail_x, tail_y)
