@@ -27,7 +27,8 @@ from game.settings import (
     ENEMY_PATROL_RADIUS,
     GRAVITY, MAX_FALL_SPEED, JUMP_FORCE,
 )
-from game.systems.combat     import AttackHitbox
+from game.entities.entity     import Entity
+from game.systems.combat      import AttackHitbox
 from game.entities.projectile import Projectile
 from game.systems.assets      import get as _assets
 from game.systems.effects     import tick_all
@@ -44,7 +45,7 @@ _EDGE_PROBE_W    = 4     # width of the ground-ahead sensor rect
 _EDGE_PROBE_H    = 8     # height — tall enough to catch slightly uneven platforms
 
 
-class Enemy:
+class Enemy(Entity):
     def __init__(self, x, y, stats=None):
         """
         stats — optional dict from enemies.json.  Any missing key falls back to

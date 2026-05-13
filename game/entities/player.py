@@ -14,15 +14,16 @@ import pygame
 from game.settings import (
     PLAYER_SPEED, PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_COLOR,
     GRAVITY, JUMP_FORCE, JUMP_HOLD_FORCE, MAX_JUMP_TIME, MAX_FALL_SPEED,
-    ATTACK_COOLDOWN, PLAYER_MAX_HEALTH, PLAYER_MAX_MANA, MANA_REGEN_RATE,
+    ATTACK_COOLDOWN, ATTACK_DAMAGE, PLAYER_MAX_HEALTH, PLAYER_MAX_MANA, MANA_REGEN_RATE,
     HOTBAR_SLOTS, INVENTORY_SLOTS,
     ARROW_ANGLE_MAX, ARROW_ANGLE_SPEED,
     STATUS_COLORS,
-    XP_BASE, XP_SCALE, MAX_LEVEL, LEVEL_UP_HP, LEVEL_UP_MANA,
+    XP_BASE, XP_SCALE, MAX_LEVEL,
 )
 
 _COYOTE_TIME      = 0.10   # seconds of coyote grace after walking off a ledge
 _JUMP_BUFFER_TIME = 0.10   # seconds a jump input is buffered before landing
+from game.entities.entity   import Entity
 from game.systems.combat    import AttackHitbox
 from game.systems.inventory import Inventory
 from game.systems.assets    import get as _assets
@@ -35,7 +36,7 @@ _HOTBAR_KEYS = [
 ]
 
 
-class Player:
+class Player(Entity):
     def __init__(self, x, y):
         self.rect      = pygame.Rect(x, y, PLAYER_WIDTH, PLAYER_HEIGHT)
         self.pos       = pygame.math.Vector2(x, y)
@@ -56,6 +57,12 @@ class Player:
         # Mana
         self.max_mana = PLAYER_MAX_MANA
         self.mana     = float(PLAYER_MAX_MANA)
+
+        # Skill-upgradeable stats — base values; increased via skill points
+        self.attack_damage = float(ATTACK_DAMAGE)
+        self.speed         = float(PLAYER_SPEED)
+        self.mana_regen    = MANA_REGEN_RATE
+        self.skill_points  = 0
 
         # XP / Level
         self.level          = 1
@@ -113,10 +120,10 @@ class Player:
         # Horizontal movement (respect slow_factor)
         self.velocity.x = 0
         if keys[pygame.K_LEFT]  or keys[pygame.K_a]:
-            self.velocity.x = -PLAYER_SPEED * self.slow_factor
+            self.velocity.x = -self.speed * self.slow_factor
             self.facing     = -1
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.velocity.x =  PLAYER_SPEED * self.slow_factor
+            self.velocity.x =  self.speed * self.slow_factor
             self.facing     =  1
 
         # Hotbar slot selection
@@ -131,7 +138,7 @@ class Player:
                 and self.active_hitbox is None
                 and not self.aiming):
             self.attack_cooldown = ATTACK_COOLDOWN
-            self.active_hitbox   = AttackHitbox(self)
+            self.active_hitbox   = AttackHitbox(self, damage=self.attack_damage)
 
         # Bow aim
         if self.aiming:
@@ -223,7 +230,7 @@ class Player:
 
         # Mana regen
         if self.mana < self.max_mana:
-            self.mana = min(self.max_mana, self.mana + MANA_REGEN_RATE * dt)
+            self.mana = min(self.max_mana, self.mana + self.mana_regen * dt)
 
         # Tick flash / input timers
         if self.hit_flash          > 0: self.hit_flash          -= dt
@@ -262,13 +269,10 @@ class Player:
             return
         self.xp += amount
         while self.xp >= self.xp_to_next and self.level < MAX_LEVEL:
-            self.xp        -= self.xp_to_next
-            self.level     += 1
-            self.max_health += LEVEL_UP_HP
-            self.health     = min(self.health + LEVEL_UP_HP, self.max_health)
-            self.max_mana  += LEVEL_UP_MANA
-            self.mana       = min(self.mana + LEVEL_UP_MANA, self.max_mana)
-            self.xp_to_next = int(XP_BASE * (XP_SCALE ** (self.level - 1)))
+            self.xp           -= self.xp_to_next
+            self.level        += 1
+            self.skill_points += 1
+            self.xp_to_next    = int(XP_BASE * (XP_SCALE ** (self.level - 1)))
             self._leveled_up_timer = 2.5
 
     def reset_to(self, x, y):

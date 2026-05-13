@@ -16,7 +16,10 @@ Recipe format (data/recipes.json):
 """
 
 import json
+import logging
 from pathlib import Path
+
+_log = logging.getLogger(__name__)
 
 _DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
@@ -76,7 +79,9 @@ class CraftingSystem:
             if placed > 0:
                 inventory.consume(recipe["result"], placed)
             for item_id, qty_needed in recipe["ingredients"].items():
-                inventory.add(item_id, qty_needed)
+                lost = inventory.add(item_id, qty_needed)
+                if lost > 0:
+                    _log.warning("craft rollback: lost %d×%s (inventory full)", lost, item_id)
             return False
 
         return True

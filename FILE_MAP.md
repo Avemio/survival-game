@@ -15,12 +15,15 @@
 ## core/
 | File | Purpose |
 |------|---------|
-| `core/engine.py` | Main game loop, clock, screen surface, top-level update/draw calls |
+| `core/engine.py` | Main game loop, clock, screen surface, top-level update/draw calls (~730 lines) |
 | `core/camera.py` | Scrolling camera — tracks player, converts world coords to screen coords |
+| `core/combat_resolver.py` | All hit resolution, enemy kill, projectile collision, particle spawning, XP/drop/quest routing |
+| `core/input_handler.py` | All KEYDOWN dispatch, item use registry, ability/arrow firing, interact handling |
 
 ## entities/
 | File | Purpose |
 |------|---------|
+| `entities/entity.py` | Base class for all game entities — alive flag, draw() stub; all entities inherit this |
 | `entities/player.py` | Player class — movement, physics, facing direction, attack cooldown, inventory, hotbar slot |
 | `entities/enemy.py` | Enemy class — health, hit-flash timer, take_damage(), alive flag, loot table |
 | `entities/item_drop.py` | World item drop — rect, item_id, quantity, color, alive flag, zone_drop_index |
@@ -39,6 +42,7 @@
 ## world/
 | File | Purpose |
 |------|---------|
+| `world/scene.py` | Base class for game scenes/zones — on_enter/on_exit lifecycle hooks; Zone inherits this |
 | `world/world.py` | Owns the active zone + all data registries; engine talks here, not to Zone directly |
 | `world/zone.py` | Loads a single zone JSON file; builds platforms, enemies, save points, item drops, NPCs, buildings |
 
@@ -76,6 +80,8 @@
 ## systems/ (additional)
 | File | Purpose |
 |------|---------|
+| `systems/events.py` | EventBus — two-tier pub/sub (persistent + zone-scoped); engine posts events, systems subscribe |
+| `systems/achievements.py` | AchievementSystem — tracks kills/gold/level/zones/skills via EventBus; unlocks + notifies |
 | `systems/assets.py` | AssetManager singleton — loads sprites + sounds, plays SFX and music, falls back silently |
 | `systems/effects.py` | StatusEffect system — poison, burn, stun, freeze, slow; tick_all() applied to entities each frame |
 | `systems/active_attacks.py` | Special attack objects — WaveAttack, AreaAttack, AuraAttack; updated and drawn by engine |
@@ -91,10 +97,12 @@
 | `ui/minimap.py` | Compact radar in top-right HUD — player dot, enemies, save points, exits, NPCs, chests |
 | `ui/title_screen.py` | Title screen — New Game / Continue / Quit; shown on every startup |
 | `ui/quest_log.py` | Quest log overlay (J key) — active quest progress bars + completed list |
+| `ui/skill_menu.py` | Skill point spending overlay (K key) — 5 stat upgrades, pauses the world |
 
 ## data/ (additional)
 | File | Purpose |
 |------|---------|
+| `data/achievements.json` | Achievement definitions — name, desc, stat to track, goal threshold |
 | `data/abilities.json` | All ability definitions — type, damage, status_effect, mana_cost, cooldown, color, sound |
 | `data/shops.json` | Shop definitions — name, buy_rate, inventory (item_id, price, stock) |
 | `data/quests.json` | Quest definitions — name, type (kill/collect/kill_any), target, count, XP+gold rewards |

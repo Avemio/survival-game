@@ -7,15 +7,26 @@ Does NOT own: inventory logic (engine handles the transfer), trigger (engine E k
 """
 
 import pygame
-from game.systems.assets import get as _assets
+from game.entities.entity   import Entity
+from game.systems.assets    import get as _assets
 
 _CLOSED_COLOR  = (140, 100, 40)
 _OPEN_COLOR    = (80,  60,  30)
 _BORDER_COLOR  = (200, 160, 60)
 _OPEN_BORDER   = (100,  80, 40)
 
+# Module-level font shared by all Chest instances
+_prompt_font: pygame.font.Font | None = None
 
-class Chest:
+
+def _get_prompt_font() -> pygame.font.Font:
+    global _prompt_font
+    if _prompt_font is None:
+        _prompt_font = pygame.font.SysFont(None, 18)
+    return _prompt_font
+
+
+class Chest(Entity):
     WIDTH  = 48
     HEIGHT = 36
 
@@ -32,10 +43,10 @@ class Chest:
         # Interaction trigger (wider than chest for comfortable approach)
         self.interact_rect = self.rect.inflate(60, 0)
 
-        # Prompt surfaces — created once at init
-        self._prompt_font   = pygame.font.SysFont(None, 18)
-        self._prompt_shadow = self._prompt_font.render("[E] Open", True, (0, 0, 0))
-        self._prompt_surf   = self._prompt_font.render("[E] Open", True, (255, 230, 120))
+        # Prompt surfaces — use module-level shared font
+        font = _get_prompt_font()
+        self._prompt_shadow = font.render("[E] Open", True, (0, 0, 0))
+        self._prompt_surf   = font.render("[E] Open", True, (255, 230, 120))
 
     def draw(self, screen, camera, player_rect):
         r     = camera.apply_tuple(self.rect)

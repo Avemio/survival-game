@@ -7,10 +7,21 @@ Does NOT own: dialogue rendering (ui/dialogue.py), triggering logic (engine).
 """
 
 import pygame
-from game.systems.assets import get as _assets
+from game.entities.entity   import Entity
+from game.systems.assets    import get as _assets
+
+# Module-level font shared by all NPC instances — created once, not per instance
+_prompt_font: pygame.font.Font | None = None
 
 
-class NPC:
+def _get_prompt_font() -> pygame.font.Font:
+    global _prompt_font
+    if _prompt_font is None:
+        _prompt_font = pygame.font.SysFont(None, 18)
+    return _prompt_font
+
+
+class NPC(Entity):
     def __init__(self, x, y, npc_def, dialogue_lines, shop_id=None, gives_quest=None):
         """
         x, y           — top-left world position
@@ -43,10 +54,10 @@ class NPC:
             prompt_text  = ""
             prompt_color = (255, 255, 255)
 
-        # Font and pre-built surfaces for overhead prompt — created once
-        self._prompt_font   = pygame.font.SysFont(None, 18)
-        self._prompt_shadow = self._prompt_font.render(prompt_text, True, (0, 0, 0))
-        self._prompt_surf   = self._prompt_font.render(prompt_text, True, prompt_color) \
+        # Pre-built prompt surfaces — use module-level shared font (not per-instance)
+        font = _get_prompt_font()
+        self._prompt_shadow = font.render(prompt_text, True, (0, 0, 0))
+        self._prompt_surf   = font.render(prompt_text, True, prompt_color) \
                               if prompt_text else None
 
         # Interaction trigger rect: 40 px wider on each side.

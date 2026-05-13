@@ -15,12 +15,16 @@ _OFF_COLOR   = (80,  80,  100)
 _SEL_COLOR   = (255, 220, 60)
 
 
+_VERSION = "v0.1"
+
+
 class TitleScreen:
     _OPTIONS = ["New Game", "Continue", "Quit"]
 
-    def __init__(self, has_save: bool):
-        self._has_save = has_save
-        self._cursor   = 0 if not has_save else 1   # default to Continue if save exists
+    def __init__(self, has_save: bool, save_info: dict | None = None):
+        self._has_save  = has_save
+        self._save_info = save_info   # {"level": int, "zone": str} or None
+        self._cursor    = 0 if not has_save else 1
 
         # Fonts — created once
         self._font_title  = pygame.font.SysFont(None, 96)
@@ -39,6 +43,16 @@ class TitleScreen:
         self._opt_on  = [self._font_option.render(o, True, _ON_COLOR)  for o in self._OPTIONS]
         self._opt_off = [self._font_option.render(o, True, _OFF_COLOR) for o in self._OPTIONS]
         self._cur_arr = self._font_option.render("▶", True, _SEL_COLOR)
+
+        # Save info line shown under Continue (e.g. "Level 5  •  Zone 01")
+        self._save_info_surf = None
+        if has_save and save_info:
+            zone_label = save_info.get("zone", "").replace("_", " ").title()
+            info_text  = f"Level {save_info.get('level', 1)}   ·   {zone_label}"
+            self._save_info_surf = self._font_sub.render(info_text, True, (100, 160, 120))
+
+        # Version label (bottom-right corner)
+        self._version_surf = self._font_hint.render(_VERSION, True, (50, 50, 70))
 
         # Dim overlay for subtle gradient effect
         self._overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -103,6 +117,11 @@ class TitleScreen:
             oy = opt_start_y + i * opt_gap
             ox = cx - surf.get_width() // 2
 
+            # Show save metadata under the Continue option
+            if label == "Continue" and self._save_info_surf and not disabled:
+                si = self._save_info_surf
+                screen.blit(si, (cx - si.get_width() // 2, oy - si.get_height() - 2))
+
             # Selection highlight background
             if i == self._cursor and not disabled:
                 hw = surf.get_width() + 60
@@ -123,3 +142,8 @@ class TitleScreen:
         screen.blit(self._hint_surf,
                     (cx - self._hint_surf.get_width() // 2,
                      SCREEN_HEIGHT - 40))
+
+        # Version label (bottom-right)
+        screen.blit(self._version_surf,
+                    (SCREEN_WIDTH - self._version_surf.get_width() - 12,
+                     SCREEN_HEIGHT - self._version_surf.get_height() - 10))

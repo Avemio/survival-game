@@ -13,7 +13,14 @@
       "Bash(start \"\" \"C:\\\\Users\\\\bobby\\\\survival-game\\\\GAME_GUIDE.md\")",
       "Bash(start \"\" \"C:\\\\Users\\\\bobby\\\\survival-game\\\\EDITOR_GUIDE.md\")",
       "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\bobby\\\\survival-game\\\\dist\" -ErrorAction SilentlyContinue)",
-      "Bash(Write-Host \"Cleared\")"
+      "Bash(Write-Host \"Cleared\")",
+      "Bash(git *)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:realpython.com)",
+      "WebFetch(domain:www.quora.com)",
+      "WebFetch(domain:gamefromscratch.com)",
+      "WebFetch(domain:www.codeyoung.com)",
+      "Bash(gh pr *)"
     ]
   }
 }

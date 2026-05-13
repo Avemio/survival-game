@@ -20,10 +20,9 @@ from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
                                    BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR, ENEMY_ATTACK_COLOR,
                                    DEATH_OVERLAY_DURATION, DEATH_TEXT_COLOR,
                                    PLAYER_COLOR, ENEMY_COLOR, ENEMY_HIT_COLOR,
-                                   ARROW_SPEED, ARROW_DAMAGE, ARROW_WIDTH, ARROW_HEIGHT,
                                    WIND_MAX, WIND_CHANGE_RATE, WIND_TARGET_MIN, WIND_TARGET_MAX,
                                    AIM_PREVIEW_STEPS, AIM_PREVIEW_STEP_T, AIM_DOT_COLOR,
-                                   ARROW_GRAVITY, HITSTOP_DURATION)
+                                   ARROW_SPEED, ARROW_GRAVITY)
 from game.core.camera        import Camera
 from game.entities.player    import Player
 from game.entities.item_drop import ItemDrop
@@ -39,13 +38,17 @@ from game.systems.assets      import get as _assets
 from game.systems.saving      import save_game, load_game
 from game.systems.crafting    import CraftingSystem
 from game.systems.abilities   import AbilitySystem
-from game.systems.effects     import apply_status
 from game.systems.shop        import ShopSystem
 from game.systems.quests      import QuestSystem
 from game.ui.shop_menu        import ShopMenu
 from game.ui.quest_log        import QuestLog
 from game.ui.notifications    import NotificationQueue
-from game.entities.projectile import Projectile
+from game.ui.skill_menu       import SkillMenu
+from game.systems.events       import EventBus
+from game.systems.achievements import AchievementSystem
+from game.entities.projectile  import Projectile
+from game.core.combat_resolver import CombatResolver
+from game.core.input_handler   import InputHandler
 
 
 class _Particle:
@@ -101,13 +104,17 @@ class Engine:
             player_data = save_data.get("player", {})
             px = player_data.get("x", self.world.spawn[0])
             py = player_data.get("y", self.world.spawn[1])
-            self.player.max_health = player_data.get("max_health", self.player.max_health)
-            self.player.max_mana   = player_data.get("max_mana",   self.player.max_mana)
-            self.player.health     = player_data.get("health", self.player.max_health)
-            self.player.mana       = float(player_data.get("mana", self.player.max_mana))
-            self.player.level      = player_data.get("level", 1)
-            self.player.xp         = player_data.get("xp", 0)
-            self.player.xp_to_next = player_data.get("xp_to_next", 100)
+            self.player.max_health    = player_data.get("max_health",    self.player.max_health)
+            self.player.max_mana      = player_data.get("max_mana",      self.player.max_mana)
+            self.player.health        = player_data.get("health",        self.player.max_health)
+            self.player.mana          = float(player_data.get("mana",    self.player.max_mana))
+            self.player.level         = player_data.get("level",         1)
+            self.player.xp            = player_data.get("xp",            0)
+            self.player.xp_to_next    = player_data.get("xp_to_next",   100)
+            self.player.skill_points  = player_data.get("skill_points",  0)
+            self.player.attack_damage = player_data.get("attack_damage", self.player.attack_damage)
+            self.player.speed         = player_data.get("speed",         self.player.speed)
+            self.player.mana_regen    = player_data.get("mana_regen",    self.player.mana_regen)
 
             inv_data = player_data.get("inventory")
             if inv_data:
@@ -128,8 +135,10 @@ class Engine:
             quest_data = save_data.get("quests", {})
             if quest_data:
                 self.quest_system.load(quest_data)
+            _pending_ach = save_data.get("achievements", {})
         else:
-            px, py = self.world.spawn
+            px, py   = self.world.spawn
+            _pending_ach = {}
 
         self.camera           = Camera()
         self.ability_system   = AbilitySystem()
@@ -142,18 +151,29 @@ class Engine:
         self.shop_system      = ShopSystem()
         self.shop_menu        = ShopMenu(self.player, self.shop_system)
         self.quest_log        = QuestLog(self.quest_system)
+        self.skill_menu       = SkillMenu(self.player)
         self.notifications    = NotificationQueue()
+        self.events           = EventBus()
+        self.achievements     = AchievementSystem(self.notifications)
+        self.achievements.subscribe_to(self.events)
+        if _pending_ach:
+            self.achievements.load(_pending_ach)
         self.minimap          = Minimap()
 
-        # Item use dispatch — add new use types here or via register_item_use()
-        self._item_use_handlers = {
-            "heal":          self._use_heal,
-            "equip_ability": self._use_equip_ability,
-        }
+        # Combat and input subsystems (extracted from engine for separation of concerns)
+        self.combat = CombatResolver(self)
+        self.input  = InputHandler(self)
 
         # Title screen — always shown first on startup
         self._state       = GameState.TITLE
-        self._title_screen = TitleScreen(has_save=save_data is not None)
+        _save_info = None
+        if save_data:
+            _save_info = {
+                "level": save_data.get("player", {}).get("level", 1),
+                "zone":  save_data.get("zone", "zone_01"),
+            }
+        self._title_screen = TitleScreen(has_save=save_data is not None,
+                                         save_info=_save_info)
 
         # Auto-start any quests flagged auto_start: true in quests.json
         self.quest_system.auto_start_all()
@@ -199,6 +219,33 @@ class Engine:
         self._pity_count     = 0
         self._PITY_THRESHOLD = 8
 
+        self._print_startup_summary()
+
+    def _print_startup_summary(self):
+        """Print a developer-readable summary of loaded content to the console."""
+        w = self.world
+        lines = [
+            "",
+            "+-- Survival Game - Engine Ready -----------------------+",
+            f"|  Zones loaded  : {self.world.zone_id}",
+            f"|  Enemy types   : {len(w._enemy_types)}",
+            f"|  Item types    : {len(w._item_defs)}",
+            f"|  NPC types     : {len(w._npc_types)}",
+            f"|  Quests        : {len(self.quest_system._defs)}",
+            f"|  Abilities     : {len(self.ability_system.defs)}",
+            f"|  Achievements  : {len(self.achievements._defs)}",
+            f"|  Recipes       : {len(self.crafting._recipes)}",
+            "|",
+            "|  EventBus: entity_killed / item_collected /",
+            "|    player_damaged / player_level_up / zone_entered / skill_spent",
+            "|",
+            "|  Run:  python main.py",
+            "|  Edit: python tools/editor.py",
+            "+-------------------------------------------------------+",
+            "",
+        ]
+        print("\n".join(lines))
+
     def _new_game(self):
         """Reset to a fresh game ignoring any existing save."""
         from pathlib import Path
@@ -211,7 +258,8 @@ class Engine:
         self.world.transition_to("zone_01")
         self._setup_zone()
         # Reset player to default state
-        from game.settings import PLAYER_MAX_HEALTH, PLAYER_MAX_MANA
+        from game.settings import (PLAYER_MAX_HEALTH, PLAYER_MAX_MANA,
+                                    ATTACK_DAMAGE, PLAYER_SPEED, MANA_REGEN_RATE)
         self.player.max_health     = PLAYER_MAX_HEALTH
         self.player.max_mana       = PLAYER_MAX_MANA
         self.player.health         = PLAYER_MAX_HEALTH
@@ -219,6 +267,10 @@ class Engine:
         self.player.level          = 1
         self.player.xp             = 0
         self.player.xp_to_next     = 100
+        self.player.skill_points   = 0
+        self.player.attack_damage  = float(ATTACK_DAMAGE)
+        self.player.speed          = float(PLAYER_SPEED)
+        self.player.mana_regen     = MANA_REGEN_RATE
         self.player.inventory      = __import__('game.systems.inventory', fromlist=['Inventory']).Inventory(
             size=__import__('game.settings', fromlist=['INVENTORY_SLOTS']).INVENTORY_SLOTS)
         self.player.ability_slots  = [None, None]
@@ -251,131 +303,10 @@ class Engine:
                 continue
 
             if event.type == pygame.KEYUP:
-                if event.key == pygame.K_x and self.player.aiming:
-                    # Only fire if no menu/overlay is open and the world is running
-                    if not (self.pause_menu.open or self.crafting_menu.open
-                            or self.dialogue_box.open or self.inventory_screen.open
-                            or self.death_timer > 0):
-                        self._fire_arrow()
-                    self.player.aiming    = False
-                    self.player.aim_angle = 0.0
+                self.input.handle_keyup(event)
 
             if event.type == pygame.KEYDOWN:
-                # Block all key input during the death overlay countdown
-                if self.death_timer > 0:
-                    continue
-
-                # Pause menu intercepts all keys while open
-                if self.pause_menu.open:
-                    self.pause_menu.handle_event(event)
-                    continue
-
-                # Shop menu intercepts all keys while open
-                if self.shop_menu.open:
-                    self.shop_menu.handle_event(event)
-                    continue
-
-                # Quest log intercepts all keys while open
-                if self.quest_log.open:
-                    self.quest_log.handle_event(event)
-                    continue
-
-                # Inventory screen intercepts while open
-                if self.inventory_screen.open:
-                    action = self.inventory_screen.handle_event(event)
-                    if action == "use":
-                        self._use_inventory_slot(self.inventory_screen.cursor_slot)
-                    elif action == "drop":
-                        self._drop_inventory_slot(self.inventory_screen.cursor_slot)
-                    continue
-
-                if event.key == pygame.K_ESCAPE:
-                    if self.shop_menu.open:
-                        self.shop_menu.close()
-                    elif self.crafting_menu.open:
-                        self.crafting_menu.close()
-                    elif self.dialogue_box.open:
-                        pass
-                    else:
-                        self.pause_menu.toggle()
-
-                elif event.key == pygame.K_i:
-                    if not self.crafting_menu.open and not self.dialogue_box.open:
-                        self.inventory_screen.toggle()
-
-                elif event.key == pygame.K_j:
-                    if not self.crafting_menu.open and not self.dialogue_box.open:
-                        self.quest_log.toggle()
-
-                elif event.key == pygame.K_c:
-                    if not self.dialogue_box.open and not self.shop_menu.open:
-                        self.crafting_menu.toggle()
-
-                elif event.key == pygame.K_e:
-                    if self.dialogue_box.open:
-                        self.dialogue_box.advance()
-                    elif self.shop_menu.open:
-                        self.shop_menu.handle_event(event)
-                    elif not self.crafting_menu.open:
-                        # Check NPCs — shopkeepers open shop, others open dialogue
-                        for npc in self.npcs:
-                            if npc.interact_rect.colliderect(self.player.rect):
-                                if npc.shop_id:
-                                    shop = self.shop_system.get(npc.shop_id)
-                                    name = shop.get("name", npc.name) if shop else npc.name
-                                    self.shop_menu.start(npc.shop_id, name)
-                                    # Show shopkeeper greeting as a notification
-                                    if npc.dialogue_lines:
-                                        self.notifications.push(
-                                            f"{npc.name}: {npc.dialogue_lines[0]}",
-                                            (255, 230, 150), 4.0)
-                                elif npc.dialogue_lines:
-                                    lines = list(npc.dialogue_lines)
-                                    self.dialogue_box.start(npc.name, lines)
-                                # Give quest — inject description into dialogue and notify
-                                qid = getattr(npc, 'gives_quest', None)
-                                if qid:
-                                    started = self.quest_system.start(qid)
-                                    if started:
-                                        q = self.quest_system.get_def(qid)
-                                        if q:
-                                            self.notifications.push(
-                                                f"New Quest: {q['name']}",
-                                                (255, 220, 60), 4.0, big=True)
-                                            self.notifications.push(
-                                                q.get('description', ''),
-                                                (200, 200, 220), 4.0)
-                                break
-                        else:
-                            for chest in self.chests:
-                                if not chest.open and chest.interact_rect.colliderect(self.player.rect):
-                                    self._open_chest(chest)
-                                    break
-                            else:
-                                for building in self.buildings:
-                                    if building.interact_rect.colliderect(self.player.rect):
-                                        self._enter_building(building)
-                                        break
-
-                elif event.key == pygame.K_f:
-                    if not self.crafting_menu.open and not self.dialogue_box.open:
-                        self._use_hotbar_item()
-
-                elif event.key == pygame.K_x:
-                    if not self.crafting_menu.open and not self.dialogue_box.open:
-                        self._start_aim()
-
-                elif event.key == pygame.K_q:
-                    if not self.crafting_menu.open and not self.dialogue_box.open:
-                        self._fire_ability(0)
-
-                elif event.key == pygame.K_r:
-                    if not self.crafting_menu.open and not self.dialogue_box.open:
-                        self._fire_ability(1)
-
-                # Forward navigation keys to the crafting menu while it's open
-                if self.crafting_menu.open:
-                    self.crafting_menu.handle_event(event)
+                self.input.handle_keydown(event)
 
     def update(self, dt):
         if self._state == GameState.TITLE:
@@ -395,7 +326,8 @@ class Engine:
         # Pause all world simulation while any overlay is open
         if (self.pause_menu.open or self.crafting_menu.open
                 or self.dialogue_box.open or self.inventory_screen.open
-                or self.shop_menu.open or self.quest_log.open):
+                or self.shop_menu.open or self.quest_log.open
+                or self.skill_menu.open):
             return
 
         self._update_wind(dt)
@@ -417,64 +349,18 @@ class Engine:
             self.camera.update(self.player.rect, dt)
             return
 
-        self._update_enemies(dt)
-        self._update_combat(dt)
-        self._update_enemy_attacks(dt)
-        self._update_projectiles(dt)
+        self.combat.update_enemies(dt)
+        self.combat.update_combat(dt)
+        self.combat.update_enemy_attacks(dt)
+        self.combat.update_projectiles(dt)
         self._update_item_drops()
         self._update_save_points(dt)
         self._update_zone_exits()
-        self._update_particles(dt)
-        self._update_damage_numbers(dt)
-        self._update_active_attacks(dt)
+        self.combat.update_particles(dt)
+        self.combat.update_damage_numbers(dt)
+        self.combat.update_active_attacks(dt)
         self._update_wind_streaks(dt)
         self.camera.update(self.player.rect, dt)
-
-    def _update_enemies(self, dt):
-        living = []
-        for enemy in self.enemies:
-            enemy.update(dt, self.player, self.platforms)
-            # Collect any projectiles fired by ranged enemies this frame
-            if enemy.pending_projectiles:
-                self.projectiles.extend(enemy.pending_projectiles)
-                enemy.pending_projectiles.clear()
-            if enemy.alive:
-                living.append(enemy)
-            else:
-                self._spawn_drops(enemy)
-                xp = getattr(enemy, 'xp_reward', 0)
-                if xp > 0:
-                    self.player.award_xp(xp)
-                    self._spawn_xp_number(enemy.rect.centerx, enemy.rect.top - 4, xp)
-                # Quest notifications for kills
-                enemy_type = getattr(enemy, '_type_key', None)
-                # notify("kill") already advances kill_any quests (quests.py handles it)
-                # — do NOT call notify("kill_any") separately or kill_any quests count twice
-                completed = self.quest_system.notify("kill", target=enemy_type or "")
-                self._award_quest_rewards(completed)
-                self._spawn_death_particles(enemy.rect.center, ENEMY_COLOR, 10)
-                _assets().play("enemy_death")
-        self.enemies[:] = living
-
-    def _spawn_drops(self, enemy):
-        """Roll loot table and create ItemDrop objects at the enemy's position."""
-        item_defs = self.player.inventory.item_defs
-        got_rare  = False
-        for drop in enemy.loot:
-            chance  = drop.get("chance", 1.0)
-            is_rare = chance < 1.0
-            # Pity system: guarantee rare drops after _PITY_THRESHOLD kills without one
-            forced = is_rare and self._pity_count >= self._PITY_THRESHOLD
-            if forced or random.random() < chance:
-                if is_rare:
-                    got_rare = True
-                item_id  = drop["item_id"]
-                quantity = drop.get("quantity", 1)
-                color    = tuple(item_defs.get(item_id, {}).get("color", [200, 200, 200]))
-                x = enemy.rect.centerx - ItemDrop.SIZE // 2
-                y = enemy.rect.bottom  - ItemDrop.SIZE
-                self.item_drops.append(ItemDrop(x, y, item_id, quantity, color))
-        self._pity_count = 0 if got_rare else self._pity_count + 1
 
     def _update_item_drops(self):
         """Pick up any drops the player is standing on."""
@@ -491,7 +377,8 @@ class Engine:
                     # Quest notify for collect
                     completed = self.quest_system.notify("collect", target=drop.item_id,
                                                          amount=drop.quantity)
-                    self._award_quest_rewards(completed)
+                    self.combat.award_quest_rewards(completed)
+                    self.events.post("item_collected", item_id=drop.item_id, quantity=drop.quantity)
                     # Ability scroll hint
                     item_def = self.player.inventory.item_defs.get(drop.item_id, {})
                     if item_def.get("use") == "equip_ability":
@@ -506,70 +393,14 @@ class Engine:
                     drop.quantity = leftover
         self.item_drops[:] = [d for d in self.item_drops if d.alive]
 
-    def _award_quest_rewards(self, completed: list[str]):
-        """Award XP + gold for each completed quest, notify the player."""
-        for quest_id in completed:
-            q = self.quest_system.get_def(quest_id)
-            if not q:
-                continue
-            xp   = q.get("reward_xp",   0)
-            gold = q.get("reward_gold",  0)
-            if xp   > 0: self.player.award_xp(xp)
-            if gold > 0: self.player.inventory.add("gold", gold)
-            _assets().play("save_point")
-            self.notifications.push(
-                f"Quest Complete: {q['name']}!",
-                (80, 255, 120), 4.0, big=True)
-            parts = []
-            if xp   > 0: parts.append(f"+{xp} XP")
-            if gold > 0: parts.append(f"+{gold} gold")
-            if parts:
-                self.notifications.push("  ".join(parts), (200, 230, 200), 3.5)
-
-    def _update_enemy_attacks(self, dt):
-        for enemy in self.enemies:
-            hitbox = enemy.active_hitbox
-            if not hitbox:
-                continue
-            hitbox.update(dt)
-            if (self.player not in hitbox.already_hit
-                    and hitbox.rect.colliderect(self.player.rect)):
-                self.player.take_damage(hitbox.damage)
-                hitbox.already_hit.add(self.player)
-                _assets().play("player_hit")
-                self.camera.shake(intensity=3, duration=0.12)
-                self._spawn_hit_particles(self.player.rect.center, PLAYER_COLOR, 5)
-                self._spawn_damage_number(
-                    self.player.rect.centerx, self.player.rect.top - 4,
-                    hitbox.damage, color=(255, 80, 80)
-                )
-            if hitbox.expired:
-                enemy.active_hitbox = None
-
-    def _update_combat(self, dt):
-        hitbox = self.player.active_hitbox
-        if not hitbox:
-            return
-        if not hitbox.sound_played:
-            _assets().play("attack_swing")
-            hitbox.sound_played = True
-        hitbox.update(dt)
-        for enemy in self.enemies:
-            if (enemy not in hitbox.already_hit
-                    and hitbox.rect.colliderect(enemy.rect)):
-                enemy.take_damage(hitbox.damage)
-                hitbox.already_hit.add(enemy)
-                if hitbox.knockback > 0:
-                    sign = 1 if enemy.rect.centerx >= self.player.rect.centerx else -1
-                    enemy.velocity.x = hitbox.knockback * sign
-                if hitbox.status_def:
-                    apply_status(enemy, hitbox.status_def)
-                _assets().play("enemy_hit")
-                self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 6)
-                self._spawn_damage_number(enemy.rect.centerx, enemy.rect.top - 4, hitbox.damage)
-                self._hitstop_timer = HITSTOP_DURATION
-        if hitbox.expired:
-            self.player.active_hitbox = None
+    def _save_game_safe(self):
+        """Call save_game and surface disk-full errors as a player notification."""
+        try:
+            save_game(self.player, self.world.zone_id,
+                      self.collected_zone_drops, self.opened_zone_chests,
+                      self.quest_system.serialize(), self.achievements.serialize())
+        except OSError:
+            self.notifications.push("Save failed — disk full?", (255, 80, 80), 5.0, big=True)
 
     def _update_save_points(self, dt):
         for sp in self.save_points:
@@ -577,7 +408,7 @@ class Engine:
             overlapping = sp.rect.colliderect(self.player.rect)
             if overlapping and not sp.was_overlapping:
                 self.player.health = self.player.max_health
-                save_game(self.player, self.world.zone_id, self.collected_zone_drops, self.opened_zone_chests, self.quest_system.serialize())
+                self._save_game_safe()
                 sp.flash_timer = sp.FLASH_DURATION
                 _assets().play("save_point")
             sp.was_overlapping = overlapping
@@ -623,6 +454,7 @@ class Engine:
         self.damage_numbers.clear()
 
         self._on_zone_loaded()
+        self.events.post("zone_entered", zone_id=self.world.zone_id)
 
     def _warm_save_points(self):
         """Pre-warm save point overlap flags after player is positioned."""
@@ -631,7 +463,8 @@ class Engine:
 
     def _transition_zone(self, target_zone_id, spawn_override=None):
         """Save, swap zones, re-point engine references, teleport player to spawn."""
-        save_game(self.player, self.world.zone_id, self.collected_zone_drops, self.opened_zone_chests, self.quest_system.serialize())
+        self._save_game_safe()
+        self.events.clear_zone_listeners()
         try:
             self.world.transition_to(target_zone_id)
         except FileNotFoundError:
@@ -644,7 +477,7 @@ class Engine:
         _assets().play("zone_transition")
         # Trigger reach_zone quests
         completed = self.quest_system.notify("reach_zone", target=target_zone_id)
-        self._award_quest_rewards(completed)
+        self.combat.award_quest_rewards(completed)
 
     def _open_chest(self, chest):
         """Open a chest and transfer contents to player inventory."""
@@ -666,7 +499,7 @@ class Engine:
 
     def _enter_building(self, building):
         """Transition into a building's interior zone (triggered by E key at door)."""
-        save_game(self.player, self.world.zone_id, self.collected_zone_drops, self.opened_zone_chests, self.quest_system.serialize())
+        self._save_game_safe()
         try:
             self.world.transition_to(building.target_zone)
         except FileNotFoundError:
@@ -677,27 +510,7 @@ class Engine:
         self._warm_save_points()
         _assets().play("zone_transition")
         completed = self.quest_system.notify("reach_zone", target=building.target_zone)
-        self._award_quest_rewards(completed)
-
-    def _fire_ability(self, slot_idx: int):
-        """Fire the ability assigned to slot 0 (Q) or 1 (R)."""
-        ability_id = self.player.ability_slots[slot_idx]
-        if not ability_id:
-            return
-        if self.player.ability_cooldowns[slot_idx] > 0:
-            return
-        if self.ability_system.execute(ability_id, self.player, self):
-            ab = self.ability_system.get(ability_id)
-            if ab:
-                self.player.ability_cooldowns[slot_idx] = ab.get("cooldown", 0.0)
-                sound = ab.get("sound")
-                if sound:
-                    _assets().play(sound)
-
-    def _update_active_attacks(self, dt):
-        for attack in self.active_attacks:
-            attack.update(dt, self.platforms, self.enemies, self.player)
-        self.active_attacks[:] = [a for a in self.active_attacks if a.alive]
+        self.combat.award_quest_rewards(completed)
 
     def _on_zone_loaded(self):
         """Called whenever the active zone changes — starts music and updates camera bounds."""
@@ -721,156 +534,6 @@ class Engine:
             elif s['x'] < -60:
                 s['x'] = SCREEN_WIDTH + 60.0
 
-    # ------------------------------------------------------------------
-    # Particle helpers
-    # ------------------------------------------------------------------
-
-    def _update_particles(self, dt):
-        for p in self.particles:
-            p.vel.y += p.gravity * dt
-            p.pos   += p.vel * dt
-            p.life  -= dt
-        self.particles[:] = [p for p in self.particles if p.life > 0]
-
-    def _spawn_hit_particles(self, pos, color, count=6):
-        for _ in range(count):
-            angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(60, 190)
-            self.particles.append(_Particle(
-                pos[0], pos[1],
-                math.cos(angle) * speed,
-                math.sin(angle) * speed - 50,
-                color,
-                random.uniform(0.14, 0.26),
-                random.randint(2, 3),
-                gravity=420.0,
-            ))
-
-    def _spawn_damage_number(self, x, y, value, color=(255, 240, 80)):
-        surf = self._dmg_font.render(str(int(value)), True, color)
-        self.damage_numbers.append(_DamageNumber(x - surf.get_width() // 2, y, surf))
-
-    def _spawn_xp_number(self, x, y, amount: int):
-        surf = self._dmg_font.render(f"+{amount} XP", True, (100, 140, 255))
-        self.damage_numbers.append(_DamageNumber(x - surf.get_width() // 2, y - 18, surf))
-
-    def _update_damage_numbers(self, dt):
-        for dn in self.damage_numbers:
-            dn.y  -= 45.0 * dt   # float upward
-            dn.life -= dt
-        self.damage_numbers[:] = [d for d in self.damage_numbers if d.life > 0]
-
-    def _spawn_death_particles(self, pos, color, count=10):
-        for _ in range(count):
-            angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(60, 240)
-            self.particles.append(_Particle(
-                pos[0], pos[1],
-                math.cos(angle) * speed,
-                math.sin(angle) * speed - 70,
-                color,
-                random.uniform(0.28, 0.55),
-                random.randint(2, 5),
-                gravity=480.0,
-            ))
-
-    def _update_projectiles(self, dt):
-        for proj in self.projectiles:
-            proj.update(dt, self.platforms, self.wind)
-            if not proj.alive:
-                continue
-            if proj.owner == "enemy":
-                # Enemy projectiles hit the player
-                if proj.rect.colliderect(self.player.rect):
-                    if proj.hit(self.player):   # proj.hit() calls player.take_damage()
-                        _assets().play("player_hit")
-                        self.camera.shake(intensity=3, duration=0.12)
-                        self._spawn_hit_particles(self.player.rect.center, PLAYER_COLOR, 5)
-                        self._spawn_damage_number(
-                            self.player.rect.centerx, self.player.rect.top - 4,
-                            proj.damage, color=(255, 80, 80))
-            else:
-                # Player projectiles hit enemies
-                for enemy in self.enemies:
-                    if proj.rect.colliderect(enemy.rect):
-                        if proj.hit(enemy):
-                            self._spawn_hit_particles(enemy.rect.center, ENEMY_HIT_COLOR, 4)
-                        if not proj.alive:
-                            break
-        self.projectiles[:] = [p for p in self.projectiles if p.alive]
-
-    def _start_aim(self):
-        """Begin aiming if the player has a bow in the selected hotbar slot."""
-        slot = self.player.inventory.slots[self.player.hotbar_slot]
-        if slot and slot.item_id == "bow":
-            self.player.aiming = True
-
-    def _fire_arrow(self):
-        """Spawn a projectile if arrows are available; consume one."""
-        if self.player.inventory.count("arrow") <= 0:
-            return
-        self.player.inventory.consume("arrow", 1)
-        _assets().play("arrow_fire")
-
-        angle_rad = math.radians(self.player.aim_angle)
-        vx = math.cos(angle_rad) * ARROW_SPEED * self.player.facing
-        vy = -math.sin(angle_rad) * ARROW_SPEED   # negative: up is -y in pygame
-
-        x = self.player.rect.centerx - ARROW_WIDTH  // 2
-        y = self.player.rect.centery - ARROW_HEIGHT // 2
-        self.projectiles.append(Projectile(x, y, vx, vy, ARROW_DAMAGE))
-
-    def _use_hotbar_item(self):
-        """Use the selected hotbar item."""
-        self._use_inventory_slot(self.player.hotbar_slot)
-
-    def _use_inventory_slot(self, slot_idx: int):
-        """Consume one of the item in slot_idx and apply its use effect via registry."""
-        slot = self.player.inventory.slots[slot_idx]
-        if not slot:
-            return
-        item_def = self.player.inventory.item_defs.get(slot.item_id, {})
-        use      = item_def.get("use")
-        handler  = self._item_use_handlers.get(use)
-        if handler:
-            handler(slot_idx, slot, item_def)
-
-    # Handlers registered by use-type string — add new item use types here,
-    # not inside _use_inventory_slot.
-    def _use_heal(self, slot_idx, slot, item_def):
-        if self.player.health >= self.player.max_health:
-            return
-        heal = item_def.get("heal_amount", 0)
-        self.player.health = min(self.player.max_health, self.player.health + heal)
-        self.player.inventory.remove(slot_idx, 1)
-
-    def _use_equip_ability(self, slot_idx, slot, item_def):
-        ability_id = item_def.get("ability_id")
-        if ability_id:
-            free = next((i for i, s in enumerate(self.player.ability_slots)
-                         if s is None), None)
-            if free is None:
-                # Both slots occupied — tell the player instead of silently overwriting
-                self.notifications.push("Ability slots full! Q or R slot must be empty.",
-                                        (255, 150, 50), 3.0)
-                return
-            self.player.ability_slots[free] = ability_id
-            self.player.inventory.remove(slot_idx, 1)
-            _assets().play("ui_confirm")
-
-    def _drop_inventory_slot(self, slot_idx: int):
-        """Drop the item in slot_idx at the player's feet."""
-        slot = self.player.inventory.slots[slot_idx]
-        if not slot:
-            return
-        item_defs = self.player.inventory.item_defs
-        color     = tuple(item_defs.get(slot.item_id, {}).get("color", [200, 200, 200]))
-        x = self.player.rect.centerx - ItemDrop.SIZE // 2
-        y = self.player.rect.bottom  - ItemDrop.SIZE
-        self.item_drops.append(ItemDrop(x, y, slot.item_id, slot.quantity, color))
-        # Use remove() so _totals stays in sync (direct slot assignment bypasses it)
-        self.player.inventory.remove(slot_idx, slot.quantity)
-
     def _respawn(self):
         """Reload from save file and restore the world to its saved state."""
         self.death_timer = 0.0
@@ -878,6 +541,7 @@ class Engine:
         self.dialogue_box.close()
         self.pause_menu.close()
         self.inventory_screen.close()
+        self.skill_menu.close()
 
         save_data = load_game()
         zone_id   = save_data.get("zone", "zone_01") if save_data else self.world.zone_id
@@ -889,13 +553,17 @@ class Engine:
             player_data = save_data.get("player", {})
             px = player_data.get("x", self.world.spawn[0])
             py = player_data.get("y", self.world.spawn[1])
-            self.player.max_health = player_data.get("max_health", self.player.max_health)
-            self.player.max_mana   = player_data.get("max_mana",   self.player.max_mana)
-            self.player.health     = player_data.get("health", self.player.max_health)
-            self.player.mana       = float(player_data.get("mana", self.player.max_mana))
-            self.player.level      = player_data.get("level", 1)
-            self.player.xp         = player_data.get("xp", 0)
-            self.player.xp_to_next = player_data.get("xp_to_next", 100)
+            self.player.max_health    = player_data.get("max_health",    self.player.max_health)
+            self.player.max_mana      = player_data.get("max_mana",      self.player.max_mana)
+            self.player.health        = player_data.get("health",        self.player.max_health)
+            self.player.mana          = float(player_data.get("mana",    self.player.max_mana))
+            self.player.level         = player_data.get("level",         1)
+            self.player.xp            = player_data.get("xp",            0)
+            self.player.xp_to_next    = player_data.get("xp_to_next",   100)
+            self.player.skill_points  = player_data.get("skill_points",  0)
+            self.player.attack_damage = player_data.get("attack_damage", self.player.attack_damage)
+            self.player.speed         = player_data.get("speed",         self.player.speed)
+            self.player.mana_regen    = player_data.get("mana_regen",    self.player.mana_regen)
             inv_data = player_data.get("inventory")
             if inv_data:
                 self.player.inventory.load_slots(inv_data)
@@ -912,6 +580,9 @@ class Engine:
             quest_data = save_data.get("quests", {})
             if quest_data:
                 self.quest_system.load(quest_data)
+            ach_data = save_data.get("achievements", {})
+            if ach_data:
+                self.achievements.load(ach_data)
             already = self.collected_zone_drops.get(zone_id, set())
             self.item_drops[:] = [d for d in self.item_drops if d.zone_drop_index not in already]
         else:
@@ -1064,6 +735,9 @@ class Engine:
 
         # Quest log
         self.quest_log.draw(self.screen)
+
+        # Skill menu
+        self.skill_menu.draw(self.screen)
 
         # Floating notifications (right side, above pause menu)
         self.notifications.draw(self.screen)

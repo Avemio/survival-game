@@ -59,11 +59,12 @@ class ShopSystem:
         if inventory.count("gold") < price:
             return "cant_afford"
 
-        leftover = inventory.add(item_id, 1)
-        if leftover > 0:
+        # Consume gold first; refund if item doesn't fit
+        inventory.consume("gold", price)
+        if inventory.add(item_id, 1) > 0:
+            inventory.add("gold", price)   # refund
             return "no_space"
 
-        inventory.consume("gold", price)
         if stock > 0:
             entry["stock"] -= 1
 

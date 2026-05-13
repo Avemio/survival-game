@@ -14,6 +14,7 @@ from game.entities.item_drop import ItemDrop
 from game.entities.npc       import NPC
 from game.entities.chest     import Chest
 from game.settings import SAVE_POINT_COLOR, SAVE_POINT_ACTIVE_COLOR, EXIT_COLOR, EXIT_BORDER_COLOR, BG_COLOR
+from game.world.scene import Scene
 
 
 class SavePoint:
@@ -93,7 +94,7 @@ class Building:
             screen.blit(self._prompt_surf,   (px,     py))
 
 
-class Zone:
+class Zone(Scene):
     def __init__(self, path, enemy_types, item_defs, npc_types, dialogue_data):
         """
         path          — pathlib.Path to the zone's JSON file

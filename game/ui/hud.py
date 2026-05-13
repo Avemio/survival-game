@@ -31,6 +31,18 @@ _MANA_BAR_X = HUD_HEALTH_X
 _MANA_BAR_Y = HUD_HEALTH_Y + HUD_HEALTH_H + 5
 _XP_BAR_Y   = _MANA_BAR_Y + MANA_BAR_H + 4
 
+# Background panel that frames the stats bars (pre-computed at module level)
+_BARS_PAD    = 8
+_BARS_BG_X   = HUD_HEALTH_X - _BARS_PAD
+_BARS_BG_Y   = HUD_HEALTH_Y - _BARS_PAD
+_BARS_BG_W   = HUD_HEALTH_W + 130   # wide enough for HP text + level badge
+_BARS_BG_H   = (_XP_BAR_Y + XP_BAR_H) - HUD_HEALTH_Y + _BARS_PAD * 2 + 20  # +20 for skill row
+
+# Bar label colors
+_LABEL_HP = (255, 120, 120)
+_LABEL_MP = (120, 160, 255)
+_LABEL_XP = (120, 200, 120)
+
 
 class HUD:
     def __init__(self, player, ability_system=None):
@@ -38,11 +50,21 @@ class HUD:
         self._ability_system = ability_system
 
         # Fonts — created once here, never in draw()
-        self._font      = pygame.font.SysFont(None, 18)
-        self._wind_font = pygame.font.SysFont(None, 16)
-        self._num_font  = pygame.font.SysFont(None, 14)
-        self._ab_font   = pygame.font.SysFont(None, 16)
-        self._hp_font   = pygame.font.SysFont(None, 16)
+        self._font       = pygame.font.SysFont(None, 18)
+        self._wind_font  = pygame.font.SysFont(None, 16)
+        self._num_font   = pygame.font.SysFont(None, 14)
+        self._ab_font    = pygame.font.SysFont(None, 16)
+        self._hp_font    = pygame.font.SysFont(None, 16)
+        self._label_font = pygame.font.SysFont(None, 14)
+
+        # Semi-transparent background panel behind stats bars — allocated once
+        self._bars_bg = pygame.Surface((_BARS_BG_W, _BARS_BG_H), pygame.SRCALPHA)
+        self._bars_bg.fill((8, 8, 18, 175))
+
+        # Static bar labels
+        self._hp_label = self._label_font.render("HP", True, _LABEL_HP)
+        self._mp_label = self._label_font.render("MP", True, _LABEL_MP)
+        self._xp_label = self._label_font.render("XP", True, _LABEL_XP)
 
         # Pre-compute hotbar geometry
         total_w = HOTBAR_SLOTS * HOTBAR_SLOT_SIZE + (HOTBAR_SLOTS - 1) * HOTBAR_SLOT_GAP
@@ -88,14 +110,20 @@ class HUD:
         self._levelup_font = pygame.font.SysFont(None, 36)
         self._levelup_surf = self._levelup_font.render("LEVEL UP!", True, (255, 240, 80))
 
+        # Skill point badge
+        self._skill_pts_font  = pygame.font.SysFont(None, 16)
+        self._skill_pts_cache = (-1, None)   # (skill_points, Surface)
+
     # ------------------------------------------------------------------
     # Draw
     # ------------------------------------------------------------------
 
     def draw(self, screen, wind=0.0):
+        screen.blit(self._bars_bg, (_BARS_BG_X, _BARS_BG_Y))
         self._draw_health_bar(screen)
         self._draw_mana_bar(screen)
         self._draw_xp_bar(screen)
+        self._draw_skill_pts(screen)
         self._draw_hotbar(screen)
         self._draw_ability_slots(screen)
         self._draw_wind(screen, wind)
@@ -115,9 +143,10 @@ class HUD:
         fill_w = int(w * ratio)
         if fill_w > 0:
             pygame.draw.rect(screen, HUD_HEALTH_FG, (x, y, fill_w, h))
-        pygame.draw.rect(screen, HUD_HEALTH_BORDER, (x, y, w, h), 2)
+        pygame.draw.rect(screen, HUD_HEALTH_BORDER, (x, y, w, h), 1)
+        screen.blit(self._hp_label,
+                    (x + 4, y + (h - self._hp_label.get_height()) // 2))
 
-        # Numeric HP display — cached; updates only when value changes
         hp_text = f"{int(self.player.health)} / {self.player.max_health}"
         if self._hp_cache[0] != hp_text:
             surf = self._hp_font.render(hp_text, True, WHITE)
@@ -136,6 +165,8 @@ class HUD:
         if fill_w > 0:
             pygame.draw.rect(screen, MANA_BAR_FG, (x, y, fill_w, h))
         pygame.draw.rect(screen, MANA_BAR_BORDER, (x, y, w, h), 1)
+        screen.blit(self._mp_label,
+                    (x + 4, y + (h - self._mp_label.get_height()) // 2))
 
     # ------------------------------------------------------------------
     # Hotbar
@@ -283,19 +314,43 @@ class HUD:
         if fill_w > 0:
             pygame.draw.rect(screen, XP_BAR_FG, (x, y, fill_w, h))
         pygame.draw.rect(screen, XP_BAR_BORDER, (x, y, w, h), 1)
+        screen.blit(self._xp_label,
+                    (x + 3, y + (h - self._xp_label.get_height()) // 2))
 
-        # Level badge (left of bar)
+        # Level badge — boxed pill to the right of the bar
         if self._level_cache[0] != p.level:
-            surf = self._hp_font.render(f"Lv{p.level}", True, (180, 200, 255))
+            surf = self._hp_font.render(f"Lv {p.level}", True, (200, 220, 255))
             self._level_cache = (p.level, surf)
-        screen.blit(self._level_cache[1], (x + w + 6, y - 2))
+        lv_surf = self._level_cache[1]
+        lv_x = x + w + 6
+        lv_y = y - 5
+        lv_w = lv_surf.get_width() + 10
+        lv_h = lv_surf.get_height() + 4
+        pygame.draw.rect(screen, (25, 30, 60), (lv_x, lv_y, lv_w, lv_h), border_radius=3)
+        pygame.draw.rect(screen, (70, 100, 200), (lv_x, lv_y, lv_w, lv_h), 1, border_radius=3)
+        screen.blit(lv_surf, (lv_x + 5, lv_y + 2))
 
-        # XP numbers (small, right of level badge)
+        # XP numbers below the level badge
         xp_key = (p.xp, p.xp_to_next)
         if self._xp_cache[:2] != xp_key:
-            surf = self._num_font.render(f"{p.xp}/{p.xp_to_next}", True, (120, 140, 220))
+            surf = self._num_font.render(f"{p.xp} / {p.xp_to_next} xp", True, (100, 120, 200))
             self._xp_cache = (p.xp, p.xp_to_next, surf)
-        screen.blit(self._xp_cache[2], (x + w + 46, y))
+        screen.blit(self._xp_cache[2], (lv_x, lv_y + lv_h + 2))
+
+    def _draw_skill_pts(self, screen):
+        pts = self.player.skill_points
+        if pts <= 0:
+            return
+        if self._skill_pts_cache[0] != pts:
+            s = "pt" if pts == 1 else "pts"
+            surf = self._skill_pts_font.render(f"  ★  {pts} skill {s}  —  K  ", True, (255, 215, 0))
+            self._skill_pts_cache = (pts, surf)
+        sp_surf = self._skill_pts_cache[1]
+        sp_x = HUD_HEALTH_X - 2
+        sp_y = _XP_BAR_Y + XP_BAR_H + 6
+        pygame.draw.rect(screen, (45, 35, 5), (sp_x, sp_y, sp_surf.get_width(), sp_surf.get_height() + 2), border_radius=3)
+        pygame.draw.rect(screen, (140, 110, 10), (sp_x, sp_y, sp_surf.get_width(), sp_surf.get_height() + 2), 1, border_radius=3)
+        screen.blit(sp_surf, (sp_x, sp_y + 1))
 
     def _draw_levelup_flash(self, screen):
         if self.player._leveled_up_timer <= 0:

@@ -46,35 +46,37 @@ class World:
 
     def _validate_zone(self, zone, zone_id: str) -> None:
         """Log warnings for any broken cross-references in a loaded zone."""
+        src = f"data/zones/{zone_id}.json"
         for enemy in zone.enemies:
             t = enemy._type_key
             if t and t not in self._enemy_types:
-                _log.warning("Zone '%s': unknown enemy type '%s'", zone_id, t)
+                _log.warning("[%s] Unknown enemy type %r — check data/enemies.json", src, t)
         for npc in zone.npcs:
-            # NPC type validation — name is stored, type_key not directly available;
-            # check via sprite name prefix or just validate dialogue_id
             if npc.dialogue_lines == [] and not npc.shop_id:
-                _log.warning("Zone '%s': NPC '%s' has no dialogue or shop", zone_id, npc.name)
+                _log.warning("[%s] NPC %r has no dialogue or shop_id", src, npc.name)
         for drop in zone.item_drops:
             if drop.item_id not in self._item_defs:
-                _log.warning("Zone '%s': unknown item_id '%s' in item_drops", zone_id, drop.item_id)
+                _log.warning("[%s] Unknown item_id %r in item_drops — check data/items.json", src, drop.item_id)
         for chest in zone.chests:
             for c in chest.contents:
-                if c.get("item_id") not in self._item_defs:
-                    _log.warning("Zone '%s': unknown item_id '%s' in chest contents", zone_id, c.get("item_id"))
+                iid = c.get("item_id")
+                if iid not in self._item_defs:
+                    _log.warning("[%s] Unknown item_id %r in chest contents", src, iid)
         for building in zone.buildings:
             bzone = building.target_zone
-            bpath = _DATA_DIR / "zones" / f"{bzone}.json"
-            if not bpath.exists():
-                _log.warning("Zone '%s': building target_zone '%s' does not exist", zone_id, bzone)
+            if not (_DATA_DIR / "zones" / f"{bzone}.json").exists():
+                _log.warning("[%s] Building target_zone %r not found in data/zones/", src, bzone)
         for exit_ in zone.exits:
-            epath = _DATA_DIR / "zones" / f"{exit_.target_zone}.json"
-            if not epath.exists():
-                _log.warning("Zone '%s': exit target_zone '%s' does not exist", zone_id, exit_.target_zone)
+            tzone = exit_.target_zone
+            if not (_DATA_DIR / "zones" / f"{tzone}.json").exists():
+                _log.warning("[%s] Exit target_zone %r not found in data/zones/", src, tzone)
 
     def transition_to(self, zone_id):
         """Swap out the active zone. Engine calls _setup_zone() after this to re-point references."""
+        if self.zone:
+            self.zone.on_exit()
         self.zone = self._load_zone(zone_id)
+        self.zone.on_enter()
 
     # ------------------------------------------------------------------
     # Convenience properties — engine uses these, not zone internals

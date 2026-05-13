@@ -7,10 +7,11 @@ Does NOT own: inventory logic (engine calls inventory.add on pickup),
 """
 
 import pygame
-from game.systems.assets import get as _assets
+from game.entities.entity   import Entity
+from game.systems.assets    import get as _assets
 
 
-class ItemDrop:
+class ItemDrop(Entity):
     SIZE = 20   # square side length in pixels
 
     def __init__(self, x, y, item_id, quantity, color):

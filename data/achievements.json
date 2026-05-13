@@ -1,0 +1,9 @@
+{
+  "first_blood":    {"name": "First Blood",    "desc": "Kill your first enemy",        "stat": "kills",          "goal": 1},
+  "warrior":        {"name": "Warrior",         "desc": "Kill 10 enemies",              "stat": "kills",          "goal": 10},
+  "monster_slayer": {"name": "Monster Slayer",  "desc": "Kill 50 enemies",              "stat": "kills",          "goal": 50},
+  "gold_rush":      {"name": "Gold Rush",       "desc": "Collect 50 gold",              "stat": "gold_collected", "goal": 50},
+  "rising_star":    {"name": "Rising Star",     "desc": "Reach level 5",               "stat": "max_level",      "goal": 5},
+  "explorer":       {"name": "Explorer",        "desc": "Discover 2 different zones",  "stat": "zones_visited",  "goal": 2},
+  "skill_master":   {"name": "Skill Master",    "desc": "Spend 5 skill points",        "stat": "skills_spent",   "goal": 5}
+}

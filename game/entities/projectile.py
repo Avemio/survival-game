@@ -8,11 +8,12 @@ Does NOT own: firing logic (engine/abilities), wind value (engine passes it in).
 
 import math
 import pygame
+from game.entities.entity   import Entity
 from game.settings import ARROW_GRAVITY, ARROW_COLOR
 from game.systems.effects import apply_status
 
 
-class Projectile:
+class Projectile(Entity):
     def __init__(self, x, y, vx, vy, damage,
                  gravity_factor=1.0,
                  wind_affected=True,
