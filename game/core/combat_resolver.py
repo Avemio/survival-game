@@ -15,9 +15,10 @@ from game.settings import (
     PLAYER_COLOR, ENEMY_COLOR, ENEMY_HIT_COLOR,
     HITSTOP_DURATION,
 )
-from game.systems.effects import apply_status
-from game.systems.assets  import get as _assets
+from game.systems.effects  import apply_status
+from game.systems.assets   import get as _assets
 from game.entities.item_drop import ItemDrop
+from game.core.particles   import Particle, DamageNumber
 
 
 class CombatResolver:
@@ -169,8 +170,7 @@ class CombatResolver:
         for _ in range(count):
             angle = random.uniform(0, 2 * math.pi)
             speed = random.uniform(60, 190)
-            from game.core.engine import _Particle
-            e.particles.append(_Particle(
+            e.particles.append(Particle(
                 pos[0], pos[1],
                 math.cos(angle) * speed,
                 math.sin(angle) * speed - 50,
@@ -185,8 +185,7 @@ class CombatResolver:
         for _ in range(count):
             angle = random.uniform(0, 2 * math.pi)
             speed = random.uniform(60, 240)
-            from game.core.engine import _Particle
-            e.particles.append(_Particle(
+            e.particles.append(Particle(
                 pos[0], pos[1],
                 math.cos(angle) * speed,
                 math.sin(angle) * speed - 70,
@@ -199,14 +198,12 @@ class CombatResolver:
     def spawn_damage_number(self, x, y, value, color=(255, 240, 80)) -> None:
         e    = self._e
         surf = e._dmg_font.render(str(int(value)), True, color)
-        from game.core.engine import _DamageNumber
-        e.damage_numbers.append(_DamageNumber(x - surf.get_width() // 2, y, surf))
+        e.damage_numbers.append(DamageNumber(x - surf.get_width() // 2, y, surf))
 
     def spawn_xp_number(self, x, y, amount: int) -> None:
         e    = self._e
         surf = e._dmg_font.render(f"+{amount} XP", True, (100, 140, 255))
-        from game.core.engine import _DamageNumber
-        e.damage_numbers.append(_DamageNumber(x - surf.get_width() // 2, y - 18, surf))
+        e.damage_numbers.append(DamageNumber(x - surf.get_width() // 2, y - 18, surf))
 
     # ------------------------------------------------------------------
     # Drops (with pity system)

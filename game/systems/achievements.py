@@ -22,12 +22,24 @@ class AchievementSystem:
     def __init__(self, notifications):
         self._notifications = notifications
 
-        with open(_DATA_PATH) as f:
-            self._defs: dict = json.load(f)
+        try:
+            with open(_DATA_PATH) as f:
+                self._defs: dict = json.load(f)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"achievements.json not found at {_DATA_PATH}. "
+                "Create data/achievements.json or copy from the project template."
+            )
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"achievements.json is malformed: {exc}") from exc
 
         self._counters:      dict[str, int | float] = {}
         self._visited_zones: set[str]               = set()
         self._unlocked:      set[str]               = set()
+
+    @property
+    def defs(self) -> dict:
+        return self._defs
 
     # ------------------------------------------------------------------
     # EventBus wiring — call once after both bus and self are created
@@ -75,6 +87,8 @@ class AchievementSystem:
         self._check_all()
 
     def _check_all(self) -> None:
+        if len(self._unlocked) == len(self._defs):
+            return
         for ach_id, ach in self._defs.items():
             if ach_id in self._unlocked:
                 continue

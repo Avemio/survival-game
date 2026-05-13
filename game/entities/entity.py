@@ -9,7 +9,7 @@ Does NOT enforce update() signature — callers vary by entity type
 
 class Entity:
     """Minimal base for every drawable, living game object."""
-    alive: bool = True
+    alive = True  # class-level default; subclasses shadow with self.alive = <bool>
 
     def draw(self, screen, camera) -> None:
         """Override in subclasses. Called each frame in screen space via camera."""

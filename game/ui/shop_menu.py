@@ -104,6 +104,13 @@ class ShopMenu:
     def close(self):
         self.open = False
 
+    def confirm(self):
+        """Trigger the current buy/sell action — call instead of synthesising a fake event."""
+        if self._mode == "buy":
+            self._do_buy()
+        else:
+            self._do_sell()
+
     def handle_event(self, event):
         if event.type != pygame.KEYDOWN:
             return

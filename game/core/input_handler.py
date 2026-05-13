@@ -69,9 +69,7 @@ class InputHandler:
         # --- No exclusive overlay open ---
 
         if event.key == pygame.K_ESCAPE:
-            if e.shop_menu.open:
-                e.shop_menu.close()
-            elif e.crafting_menu.open:
+            if e.crafting_menu.open:
                 e.crafting_menu.close()
             elif e.dialogue_box.open:
                 pass
@@ -141,8 +139,7 @@ class InputHandler:
             e.dialogue_box.advance()
             return
         if e.shop_menu.open:
-            e.shop_menu.handle_event(pygame.event.Event(
-                pygame.KEYDOWN, key=pygame.K_e, mod=0))
+            e.shop_menu.confirm()
             return
         if e.crafting_menu.open:
             return
@@ -150,6 +147,7 @@ class InputHandler:
         # NPCs
         for npc in e.npcs:
             if npc.interact_rect.colliderect(e.player.rect):
+                did_act = False
                 if npc.shop_id:
                     shop = e.shop_system.get(npc.shop_id)
                     name = shop.get("name", npc.name) if shop else npc.name
@@ -158,8 +156,10 @@ class InputHandler:
                         e.notifications.push(
                             f"{npc.name}: {npc.dialogue_lines[0]}",
                             (255, 230, 150), 4.0)
+                    did_act = True
                 elif npc.dialogue_lines:
                     e.dialogue_box.start(npc.name, list(npc.dialogue_lines))
+                    did_act = True
                 qid = getattr(npc, 'gives_quest', None)
                 if qid:
                     started = e.quest_system.start(qid)
@@ -170,7 +170,9 @@ class InputHandler:
                                 f"New Quest: {q['name']}", (255, 220, 60), 4.0, big=True)
                             e.notifications.push(
                                 q.get('description', ''), (200, 200, 220), 4.0)
-                return
+                        did_act = True
+                if did_act:
+                    return
 
         # Chests
         for chest in e.chests:

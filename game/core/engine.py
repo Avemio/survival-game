@@ -49,32 +49,10 @@ from game.systems.achievements import AchievementSystem
 from game.entities.projectile  import Projectile
 from game.core.combat_resolver import CombatResolver
 from game.core.input_handler   import InputHandler
-
-
-class _Particle:
-    """Lightweight visual particle — world-space position, fades and shrinks over its lifetime."""
-    __slots__ = ('pos', 'vel', 'color', 'life', 'max_life', 'radius', 'gravity')
-
-    def __init__(self, x, y, vx, vy, color, life, radius, gravity=400.0):
-        self.pos      = pygame.math.Vector2(x, y)
-        self.vel      = pygame.math.Vector2(vx, vy)
-        self.color    = color
-        self.life     = life
-        self.max_life = life
-        self.radius   = radius
-        self.gravity  = gravity
-
-
-class _DamageNumber:
-    """Floating damage number — drifts upward for 0.75 s then expires."""
-    __slots__ = ('x', 'y', 'surf', 'life', 'max_life')
-
-    def __init__(self, x, y, surf):
-        self.x        = float(x)
-        self.y        = float(y)
-        self.surf     = surf
-        self.life     = 0.75
-        self.max_life = 0.75
+from game.core.particles       import Particle, DamageNumber
+from game.systems.inventory    import Inventory
+from game.settings             import (ATTACK_DAMAGE, PLAYER_SPEED, MANA_REGEN_RATE,
+                                        INVENTORY_SLOTS)
 
 
 class Engine:
@@ -228,13 +206,13 @@ class Engine:
             "",
             "+-- Survival Game - Engine Ready -----------------------+",
             f"|  Zones loaded  : {self.world.zone_id}",
-            f"|  Enemy types   : {len(w._enemy_types)}",
-            f"|  Item types    : {len(w._item_defs)}",
-            f"|  NPC types     : {len(w._npc_types)}",
-            f"|  Quests        : {len(self.quest_system._defs)}",
+            f"|  Enemy types   : {len(w.enemy_types)}",
+            f"|  Item types    : {len(w.item_defs)}",
+            f"|  NPC types     : {len(w.npc_types)}",
+            f"|  Quests        : {len(self.quest_system.all_defs())}",
             f"|  Abilities     : {len(self.ability_system.defs)}",
-            f"|  Achievements  : {len(self.achievements._defs)}",
-            f"|  Recipes       : {len(self.crafting._recipes)}",
+            f"|  Achievements  : {len(self.achievements.defs)}",
+            f"|  Recipes       : {len(self.crafting.recipes)}",
             "|",
             "|  EventBus: entity_killed / item_collected /",
             "|    player_damaged / player_level_up / zone_entered / skill_spent",
@@ -258,8 +236,7 @@ class Engine:
         self.world.transition_to("zone_01")
         self._setup_zone()
         # Reset player to default state
-        from game.settings import (PLAYER_MAX_HEALTH, PLAYER_MAX_MANA,
-                                    ATTACK_DAMAGE, PLAYER_SPEED, MANA_REGEN_RATE)
+        from game.settings import PLAYER_MAX_HEALTH, PLAYER_MAX_MANA
         self.player.max_health     = PLAYER_MAX_HEALTH
         self.player.max_mana       = PLAYER_MAX_MANA
         self.player.health         = PLAYER_MAX_HEALTH
@@ -271,8 +248,7 @@ class Engine:
         self.player.attack_damage  = float(ATTACK_DAMAGE)
         self.player.speed          = float(PLAYER_SPEED)
         self.player.mana_regen     = MANA_REGEN_RATE
-        self.player.inventory      = __import__('game.systems.inventory', fromlist=['Inventory']).Inventory(
-            size=__import__('game.settings', fromlist=['INVENTORY_SLOTS']).INVENTORY_SLOTS)
+        self.player.inventory      = Inventory(size=INVENTORY_SLOTS)
         self.player.ability_slots  = [None, None]
         self.player.ability_cooldowns = [0.0, 0.0]
         # Reset quest state for a true new game

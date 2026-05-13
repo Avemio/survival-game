@@ -137,3 +137,19 @@ class World:
     @property
     def world_h(self):
         return self.zone.world_h
+
+    # ------------------------------------------------------------------
+    # Registry access — read-only views of loaded data files
+    # ------------------------------------------------------------------
+
+    @property
+    def enemy_types(self) -> dict:
+        return self._enemy_types
+
+    @property
+    def item_defs(self) -> dict:
+        return self._item_defs
+
+    @property
+    def npc_types(self) -> dict:
+        return self._npc_types
