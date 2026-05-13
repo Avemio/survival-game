@@ -20,7 +20,10 @@
       "WebFetch(domain:www.quora.com)",
       "WebFetch(domain:gamefromscratch.com)",
       "WebFetch(domain:www.codeyoung.com)",
-      "Bash(gh pr *)"
+      "Bash(gh pr *)",
+      "Bash(pip install *)",
+      "PowerShell(Start-Process python -ArgumentList \"main.py\" -WorkingDirectory \"C:\\\\Users\\\\bobby\\\\survival-game\" -PassThru | Select-Object Id)",
+      "Bash(del /Q *.png)"
     ]
   }
 }
