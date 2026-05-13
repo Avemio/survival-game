@@ -122,7 +122,7 @@ class Enemy(Entity):
     # Update — called by engine each frame with player and platforms
     # ------------------------------------------------------------------
 
-    def update(self, dt, player, platforms):
+    def update(self, dt, player, platform_grid):
         if not self.alive:
             return
 
@@ -140,7 +140,7 @@ class Enemy(Entity):
 
         if self.stunned:
             self.velocity.x = 0
-            self._move(dt, platforms)
+            self._move(dt, platform_grid)
             return
 
         # Horizontal distance to player (signed: positive = player is to the right)
@@ -149,7 +149,7 @@ class Enemy(Entity):
 
         # State machine
         if self.state == EnemyState.PATROL:
-            self._do_patrol(platforms)
+            self._do_patrol(platform_grid)
             if dist < self.aggro_range:
                 self.state = EnemyState.CHASE
 
@@ -182,13 +182,13 @@ class Enemy(Entity):
             self._do_attack_tick(dt)
 
         # Move and resolve collisions
-        self._move(dt, platforms)
+        self._move(dt, platform_grid)
 
     # ------------------------------------------------------------------
     # State behaviours
     # ------------------------------------------------------------------
 
-    def _do_patrol(self, platforms):
+    def _do_patrol(self, platform_grid):
         # Leash: don't wander beyond patrol_radius from spawn X — keeps enemies
         # near their placed position on long or continuous ground.
         if self.rect.centerx > self._spawn_x + self.patrol_radius:
@@ -201,7 +201,8 @@ class Enemy(Entity):
                        else self.rect.left - _EDGE_PROBE_W)
             self._probe.x = probe_x
             self._probe.y = self.rect.bottom
-            if not any(self._probe.colliderect(p) for p in platforms):
+            candidates = platform_grid.query_rect(self._probe)
+            if not any(self._probe.colliderect(p) for p in candidates):
                 self.facing *= -1
 
         self.velocity.x = self.patrol_speed * self.facing * self.slow_factor
@@ -245,19 +246,19 @@ class Enemy(Entity):
     # Physics + collision resolution
     # ------------------------------------------------------------------
 
-    def _move(self, dt, platforms):
+    def _move(self, dt, platform_grid):
         # X axis — move then resolve
         self.pos.x  += self.velocity.x * dt
         self.rect.x  = int(self.pos.x)
-        self._resolve_x(platforms)
+        self._resolve_x(platform_grid)
 
         # Y axis — move then resolve
         self.pos.y  += self.velocity.y * dt
         self.rect.y  = int(self.pos.y)
-        self._resolve_y(platforms)
+        self._resolve_y(platform_grid)
 
-    def _resolve_x(self, platforms):
-        for p in platforms:
+    def _resolve_x(self, platform_grid):
+        for p in platform_grid.query_rect(self.rect):
             if self.rect.colliderect(p):
                 if self.velocity.x > 0:
                     self.rect.right = p.left
@@ -269,9 +270,9 @@ class Enemy(Entity):
                 if self.state == EnemyState.PATROL:
                     self.facing *= -1
 
-    def _resolve_y(self, platforms):
+    def _resolve_y(self, platform_grid):
         self.on_ground = False
-        for p in platforms:
+        for p in platform_grid.query_rect(self.rect):
             if self.rect.colliderect(p):
                 if self.velocity.y > 0:    # landing
                     self.rect.bottom = p.top

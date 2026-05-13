@@ -14,7 +14,8 @@ from game.entities.item_drop import ItemDrop
 from game.entities.npc       import NPC
 from game.entities.chest     import Chest
 from game.settings import SAVE_POINT_COLOR, SAVE_POINT_ACTIVE_COLOR, EXIT_COLOR, EXIT_BORDER_COLOR, BG_COLOR
-from game.world.scene import Scene
+from game.world.scene        import Scene
+from game.world.platform_grid import PlatformGrid
 
 
 class SavePoint:
@@ -104,8 +105,9 @@ class Zone(Scene):
         dialogue_data — dict from data/dialogue.json
         """
         self.id          = "unknown"
-        self.platforms   = []
-        self.enemies     = []
+        self.platforms      = []
+        self.platform_grid  = None
+        self.enemies        = []
         self.save_points = []
         self.item_drops  = []
         self.npcs        = []
@@ -137,6 +139,7 @@ class Zone(Scene):
             self.platforms.append(
                 pygame.Rect(p["x"], p["y"], p["w"], p["h"])
             )
+        self.platform_grid = PlatformGrid(self.platforms)
 
         for e in data.get("enemies", []):
             stats = dict(enemy_types.get(e["type"], {}))

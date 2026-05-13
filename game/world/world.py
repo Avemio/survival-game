@@ -87,6 +87,10 @@ class World:
         return self.zone.platforms
 
     @property
+    def platform_grid(self):
+        return self.zone.platform_grid
+
+    @property
     def enemies(self):
         return self.zone.enemies
 

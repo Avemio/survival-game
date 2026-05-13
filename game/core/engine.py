@@ -46,7 +46,6 @@ from game.ui.notifications    import NotificationQueue
 from game.ui.skill_menu       import SkillMenu
 from game.systems.events       import EventBus
 from game.systems.achievements import AchievementSystem
-from game.entities.projectile  import Projectile
 from game.core.combat_resolver import CombatResolver
 from game.core.input_handler   import InputHandler
 from game.core.particles       import Particle, DamageNumber
@@ -307,7 +306,7 @@ class Engine:
             return
 
         self._update_wind(dt)
-        self.player.update(dt, self.platforms)
+        self.player.update(dt, self.platform_grid)
 
         # Check death BEFORE zone exits (prevents player entering new zone at 0 HP)
         if self.player.health <= 0:
@@ -399,9 +398,9 @@ class Engine:
 
     def _setup_zone(self):
         """Re-point all engine list references after a zone load. Call after world.transition_to()."""
-        zone_id          = self.world.zone_id
-        self.platforms   = self.world.platforms
-        self.enemies     = self.world.enemies
+        zone_id              = self.world.zone_id
+        self.platform_grid   = self.world.platform_grid
+        self.enemies         = self.world.enemies
         self.save_points = self.world.save_points
         self.npcs        = self.world.npcs
         self.exits       = self.world.exits
@@ -613,8 +612,10 @@ class Engine:
                     pygame.draw.line(self.screen, streak_color,
                                      (x1, int(s['y'])), (x2, int(s['y'])), 1)
 
-        # Draw platforms
-        for p in self.platforms:
+        # Draw platforms — only those visible in the camera viewport
+        for p in self.platform_grid.query_screen(
+                int(self.camera.offset.x), int(self.camera.offset.y),
+                SCREEN_WIDTH, SCREEN_HEIGHT):
             pygame.draw.rect(self.screen, PLATFORM_COLOR, self.camera.apply_tuple(p))
 
         # Draw buildings (behind NPCs/enemies)
@@ -665,7 +666,9 @@ class Engine:
             sx, sy = self.camera.world_to_screen(dn.x, dn.y)
             if 0 <= sx <= SCREEN_WIDTH and 0 <= sy <= SCREEN_HEIGHT:
                 alpha = int(255 * dn.life / dn.max_life)
-                dn.surf.set_alpha(alpha)
+                if alpha != dn._last_alpha:
+                    dn.surf.set_alpha(alpha)
+                    dn._last_alpha = alpha
                 self.screen.blit(dn.surf, (sx, int(sy)))
 
         # Draw particles (world-space, fading color + shrinking radius)

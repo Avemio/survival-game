@@ -176,8 +176,8 @@ class Player(Entity):
         if self.velocity.y > MAX_FALL_SPEED:
             self.velocity.y = MAX_FALL_SPEED
 
-    def resolve_x(self, platforms):
-        for p in platforms:
+    def resolve_x(self, platform_grid):
+        for p in platform_grid.query_rect(self.rect):
             if self.rect.colliderect(p):
                 if self.velocity.x > 0:
                     self.rect.right = p.left
@@ -186,10 +186,10 @@ class Player(Entity):
                 self.velocity.x = 0
                 self.pos.x = self.rect.x
 
-    def resolve_y(self, platforms):
+    def resolve_y(self, platform_grid):
         self.on_ground         = False
         self._landing_velocity = 0.0
-        for p in platforms:
+        for p in platform_grid.query_rect(self.rect):
             if self.rect.colliderect(p):
                 if self.velocity.y > 0:
                     self._landing_velocity = self.velocity.y  # capture before zeroing
@@ -217,7 +217,7 @@ class Player(Entity):
     # Update
     # ------------------------------------------------------------------
 
-    def update(self, dt, platforms):
+    def update(self, dt, platform_grid):
         # Tick status effects first (sets stunned / slow_factor)
         tick_all(self, dt)
 
@@ -245,11 +245,11 @@ class Player(Entity):
 
         self.pos.x  += self.velocity.x * dt
         self.rect.x  = int(self.pos.x)
-        self.resolve_x(platforms)
+        self.resolve_x(platform_grid)
 
         self.pos.y  += self.velocity.y * dt
         self.rect.y  = int(self.pos.y)
-        self.resolve_y(platforms)
+        self.resolve_y(platform_grid)
 
         # Start coyote timer when walking off a ledge (not from a jump)
         if was_on_ground and not self.on_ground and self.velocity.y > 0:

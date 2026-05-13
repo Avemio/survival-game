@@ -14,6 +14,7 @@ TITLE         = "Survival Game"
 # World
 WORLD_WIDTH  = 10000   # total pixel width of the world
 WORLD_HEIGHT = 720     # matches screen height for now
+PLATFORM_BUCKET_SIZE = 512   # px per spatial bucket column — reduce for denser zones
 
 # Player
 PLAYER_SPEED  = 280    # horizontal pixels per second (dt-based — was 5 pre-M2)
@@ -52,6 +53,7 @@ ENEMY_ATTACK_RANGE    = 65     # px: begin wind-up when this close horizontally
 ENEMY_ATTACK_DAMAGE   = 15     # hp per hit (player max = 100)
 ENEMY_ATTACK_COOLDOWN = 1.5    # seconds between enemy swings
 ENEMY_PATROL_RADIUS   = 200    # px: max distance enemy wanders from its spawn X
+ENEMY_ACTIVE_RADIUS   = 2000   # px: skip update() for enemies beyond this distance from player
 ENEMY_WINDUP_COLOR    = (255, 160,  30)  # orange — winding up to swing
 ENEMY_ATTACK_COLOR    = (255,  80,  50)  # red-orange — enemy hitbox outline (debug)
 

@@ -25,11 +25,12 @@ class Particle:
 
 class DamageNumber:
     """Floating damage/XP number — drifts upward for 0.75 s then expires."""
-    __slots__ = ('x', 'y', 'surf', 'life', 'max_life')
+    __slots__ = ('x', 'y', 'surf', 'life', 'max_life', '_last_alpha')
 
     def __init__(self, x, y, surf):
-        self.x        = float(x)
-        self.y        = float(y)
-        self.surf     = surf
-        self.life     = 0.75
-        self.max_life = 0.75
+        self.x          = float(x)
+        self.y          = float(y)
+        self.surf       = surf
+        self.life       = 0.75
+        self.max_life   = 0.75
+        self._last_alpha = -1   # sentinel — forces set_alpha on first draw

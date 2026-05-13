@@ -139,7 +139,7 @@ class HUD:
     def _draw_health_bar(self, screen):
         x, y, w, h = HUD_HEALTH_X, HUD_HEALTH_Y, HUD_HEALTH_W, HUD_HEALTH_H
         pygame.draw.rect(screen, HUD_HEALTH_BG, (x, y, w, h))
-        ratio = max(0, self.player.health / self.player.max_health)
+        ratio = max(0, self.player.health / max(1, self.player.max_health))
         fill_w = int(w * ratio)
         if fill_w > 0:
             pygame.draw.rect(screen, HUD_HEALTH_FG, (x, y, fill_w, h))
@@ -160,7 +160,7 @@ class HUD:
     def _draw_mana_bar(self, screen):
         x, y, w, h = _MANA_BAR_X, _MANA_BAR_Y, HUD_HEALTH_W, MANA_BAR_H
         pygame.draw.rect(screen, MANA_BAR_BG, (x, y, w, h))
-        ratio = max(0, self.player.mana / self.player.max_mana)
+        ratio = max(0, self.player.mana / max(1, self.player.max_mana))
         fill_w = int(w * ratio)
         if fill_w > 0:
             pygame.draw.rect(screen, MANA_BAR_FG, (x, y, fill_w, h))
@@ -389,7 +389,7 @@ class HUD:
             pygame.draw.rect(screen, color, icon_r)
             pygame.draw.rect(screen, (200, 200, 200), icon_r, 1)
             # Duration fill bar (shrinks from right as timer counts down)
-            ratio = max(0.0, effect.timer / effect.duration)
+            ratio = max(0.0, effect.timer / max(0.001, effect.duration))
             bar_w = int(icon_w * ratio)
             if bar_w > 0:
                 pygame.draw.rect(screen, (255, 255, 255),

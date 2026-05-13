@@ -39,7 +39,7 @@ class Projectile(Entity):
         self._w             = width
         self._h             = height
 
-    def update(self, dt, platforms, wind):
+    def update(self, dt, platform_grid, wind):
         self.velocity.y += self._gravity * dt
         if self._wind_affected:
             self.velocity.x += wind * dt
@@ -49,7 +49,7 @@ class Projectile(Entity):
         self.rect.x = int(self.pos.x)
         self.rect.y = int(self.pos.y)
 
-        for p in platforms:
+        for p in platform_grid.query_rect(self.rect):
             if self.rect.colliderect(p):
                 self.alive = False
                 return

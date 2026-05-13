@@ -98,6 +98,8 @@ class QuestSystem:
         """
         completed = []
         for quest_id, state in list(self._active.items()):
+            if quest_id not in self._defs:
+                continue   # quest definition removed from quests.json after save was written
             q = self._defs[quest_id]
             q_type = q.get("type")
 

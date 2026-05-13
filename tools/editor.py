@@ -948,11 +948,22 @@ class ZoneTab(ttk.Frame):
         self._rubber_id  = None
         self._tool = tk.StringVar(value="select")
         self._grid_snap = tk.BooleanVar(value=True)
+        self._snap_surface = tk.BooleanVar(value=False)
         self._cursor_var = tk.StringVar(value="Cursor: —")
 
         # Undo/redo stacks (store deep copies of zone data)
         self._undo_stack: list = []
         self._redo_stack: list = []
+
+        # Clipboard for copy/paste
+        self._clipboard: dict | None = None
+
+        # Multi-selection for batch editing
+        self._multi_sel_ids:  set  = set()   # id(data) of each selected element
+        self._multi_sel_data: list = []      # (etype, data) pairs
+
+        # Layer visibility — populated in _build()
+        self._layer_vis: dict = {}
 
         self._build()
 
@@ -995,11 +1006,25 @@ class ZoneTab(ttk.Frame):
             ttk.Radiobutton(tb,text=labels[val],variable=self._tool,value=val).pack(side="left",padx=3)
         ttk.Separator(tb,orient="vertical").pack(side="left",fill="y",padx=8)
         ttk.Checkbutton(tb,text="Grid snap (G)",variable=self._grid_snap).pack(side="left")
+        ttk.Checkbutton(tb,text="⊥ Snap Surface",variable=self._snap_surface).pack(side="left",padx=4)
         ttk.Label(tb,text="  ").pack(side="left")
         ttk.Button(tb,text="Undo",command=self._undo).pack(side="left")
         ttk.Button(tb,text="Redo",command=self._redo).pack(side="left",padx=2)
         ttk.Label(tb,text="  ").pack(side="left")
         ttk.Button(tb,text="Validate",command=self._validate).pack(side="left")
+
+        # ---- Layer visibility ----
+        lyr = ttk.Frame(self); lyr.pack(fill="x",padx=8,pady=(0,2))
+        ttk.Label(lyr,text="Layers:").pack(side="left")
+        _layer_order = ("platform","enemy","npc","save_point","item_drop","exit","building","chest")
+        _layer_labels = {"platform":"Platforms","enemy":"Enemies","npc":"NPCs",
+                         "save_point":"Save Pts","item_drop":"Drops",
+                         "exit":"Exits","building":"Buildings","chest":"Chests"}
+        for etype in _layer_order:
+            var = tk.BooleanVar(value=True)
+            self._layer_vis[etype] = var
+            ttk.Checkbutton(lyr, text=_layer_labels[etype], variable=var,
+                            command=self._redraw).pack(side="left", padx=3)
 
         # ---- Canvas ----
         cf = ttk.Frame(self,relief="sunken",borderwidth=1)
@@ -1019,11 +1044,15 @@ class ZoneTab(ttk.Frame):
         self._canvas.bind("<Escape>",          lambda e: self._deselect())
         self._canvas.bind("<Motion>",          self._on_motion)
         self._canvas.bind("<KeyPress>",        self._on_key)
-        # Ctrl+Z / Ctrl+Y
+        # Ctrl+Z / Ctrl+Y / Ctrl+C / Ctrl+V
         self._canvas.bind("<Control-z>",       lambda e: self._undo())
         self._canvas.bind("<Control-y>",       lambda e: self._redo())
         self._canvas.bind("<Control-Z>",       lambda e: self._undo())
         self._canvas.bind("<Control-Y>",       lambda e: self._redo())
+        self._canvas.bind("<Control-c>",       lambda e: self._copy())
+        self._canvas.bind("<Control-v>",       lambda e: self._paste())
+        self._canvas.bind("<Control-C>",       lambda e: self._copy())
+        self._canvas.bind("<Control-V>",       lambda e: self._paste())
         self._canvas.focus_set()
 
         # ---- Properties panel ----
@@ -1067,13 +1096,17 @@ class ZoneTab(ttk.Frame):
         if not self._undo_stack: return
         self._redo_stack.append(deepcopy(self._zone))
         self._zone = self._undo_stack.pop()
-        self._selected_idx = None; self._redraw(); self._clear_props()
+        self._selected_idx = None
+        self._multi_sel_ids.clear(); self._multi_sel_data.clear()
+        self._redraw(); self._clear_props()
 
     def _redo(self):
         if not self._redo_stack: return
         self._undo_stack.append(deepcopy(self._zone))
         self._zone = self._redo_stack.pop()
-        self._selected_idx = None; self._redraw(); self._clear_props()
+        self._selected_idx = None
+        self._multi_sel_ids.clear(); self._multi_sel_data.clear()
+        self._redraw(); self._clear_props()
 
     # ------------------------------------------------------------------
     # Canvas redraw
@@ -1100,14 +1133,17 @@ class ZoneTab(ttk.Frame):
             fill=self._CLR["spawn"], outline="white", tags="spawn")
         self._canvas.create_text(self._cx(sx), self._cy(sy)-10, text="spawn", fill=self._CLR["spawn"], font=("",8))
 
-        for d in z.get("platforms",[]): self._draw_elem("platform",d)
-        for d in z.get("save_points",[]): self._draw_elem("save_point",d)
-        for d in z.get("exits",[]): self._draw_elem("exit",d)
-        for d in z.get("buildings",[]): self._draw_elem("building",d)
-        for d in z.get("chests",[]): self._draw_elem("chest",d)
-        for d in z.get("npcs",[]): self._draw_elem("npc",d)
-        for d in z.get("item_drops",[]): self._draw_elem("item_drop",d)
-        for d in z.get("enemies",[]): self._draw_elem("enemy",d)
+        def _vis(etype):
+            v = self._layer_vis.get(etype)
+            return v.get() if v is not None else True
+        if _vis("platform"):  [self._draw_elem("platform",  d) for d in z.get("platforms",[])]
+        if _vis("save_point"):[self._draw_elem("save_point",d) for d in z.get("save_points",[])]
+        if _vis("exit"):      [self._draw_elem("exit",      d) for d in z.get("exits",[])]
+        if _vis("building"):  [self._draw_elem("building",  d) for d in z.get("buildings",[])]
+        if _vis("chest"):     [self._draw_elem("chest",     d) for d in z.get("chests",[])]
+        if _vis("npc"):       [self._draw_elem("npc",       d) for d in z.get("npcs",[])]
+        if _vis("item_drop"): [self._draw_elem("item_drop", d) for d in z.get("item_drops",[])]
+        if _vis("enemy"):     [self._draw_elem("enemy",     d) for d in z.get("enemies",[])]
 
         # Stats
         z2 = z
@@ -1141,8 +1177,10 @@ class ZoneTab(ttk.Frame):
             label=data.get("type",etype[:4])
             self._canvas.create_text(self._cx(ex),self._cy(ey)-r-4,text=label,fill="white",font=("",8),tags=tag)
 
+        if id(data) in self._multi_sel_ids:
+            self._canvas.itemconfig(cid, outline="#FF60FF", width=2)
         self._elements.append({"type":etype,"data":data,"cid":cid})
-        self._canvas.tag_bind(tag,"<ButtonPress-1>",lambda e,i=idx: self._select_elem(i))
+        self._canvas.tag_bind(tag,"<ButtonPress-1>",lambda e,i=idx: self._on_elem_click(e,i))
 
     # ------------------------------------------------------------------
     # Mouse interaction
@@ -1161,7 +1199,7 @@ class ZoneTab(ttk.Frame):
         if tool in("platform","exit"):
             self._drag_start=(cx,cy,wx,wy)
         else:
-            self._push_undo(); self._place_element(tool,wx,wy)
+            self._place_element(tool,wx,wy)
 
     def _on_drag(self, event):
         if self._drag_start is None: return
@@ -1187,7 +1225,17 @@ class ZoneTab(ttk.Frame):
             return  # dialog handles push itself
         self._redraw()
 
+    def _on_elem_click(self, event, idx):
+        if event.state & 0x0001:   # Shift held — toggle multi-select
+            self._toggle_multi_sel(idx)
+        else:
+            self._clear_multi_sel()
+            self._select_elem(idx)
+
     def _on_key(self, event):
+        if event.keysym in ("g", "G"):
+            self._grid_snap.set(not self._grid_snap.get())
+            self._redraw(); return
         if self._selected_idx is None: return
         elem=self._elements[self._selected_idx]; data=elem["data"]; step=10 if event.state&1 else 1
         moved=False
@@ -1217,7 +1265,9 @@ class ZoneTab(ttk.Frame):
                 old=self._elements[self._selected_idx]
                 self._canvas.itemconfig(old["cid"],outline="white",width=1)
             except Exception: pass
-        self._selected_idx=None; self._clear_props()
+        self._selected_idx=None
+        self._multi_sel_ids.clear(); self._multi_sel_data.clear()
+        self._clear_props()
 
     def _select_elem(self, idx):
         self._deselect()
@@ -1338,7 +1388,9 @@ class ZoneTab(ttk.Frame):
                     data.pop(key,None)
                 elif is_int and val:
                     try: data[key]=int(val)
-                    except ValueError: pass
+                    except ValueError:
+                        messagebox.showwarning("Invalid value",
+                            f"'{val}' is not a valid integer for '{key}' — change ignored.")
                 elif val:
                     data[key]=val
 
@@ -1353,7 +1405,9 @@ class ZoneTab(ttk.Frame):
                 ct=vars_["_ct"][0]
                 contents=[]
                 for rid in ct.get_children():
-                    v=ct.item(rid,"values"); contents.append({"item_id":v[0],"quantity":int(v[1])})
+                    v=ct.item(rid,"values")
+                    try: contents.append({"item_id":v[0],"quantity":int(v[1])})
+                    except (ValueError,IndexError): pass
                 data["contents"]=contents
 
             self._redraw()
@@ -1366,6 +1420,7 @@ class ZoneTab(ttk.Frame):
 
     def _place_element(self, tool, wx, wy):
         if tool=="save_point":
+            self._push_undo()
             self._zone.setdefault("save_points",[]).append({"x":wx-30,"y":wy-32,"w":60,"h":64})
             self._redraw(); return
         if tool=="enemy":   self._add_enemy_dlg(wx,wy)
@@ -1379,11 +1434,13 @@ class ZoneTab(ttk.Frame):
         f=ttk.Frame(win,padding=12); f.pack(); return win,f
 
     def _add_enemy_dlg(self,wx,wy):
+        if self._snap_surface.get(): wy=self._find_surface_y(wx,wy,60)
         win,f=self._dlg_base("Place Enemy")
         types=list(self._enemies.keys()) or ["basic"]
         v_type=_combo(f,0,"Enemy type",types,types[0])
         v_x=_spin(f,1,"X",0,99999,wx); v_y=_spin(f,2,"Y",0,9999,wy)
         def ok():
+            self._push_undo()
             self._zone.setdefault("enemies",[]).append({"type":v_type.get(),"x":int(v_x.get()),"y":int(v_y.get())})
             self._redraw(); win.destroy()
         ttk.Button(f,text="Place",command=ok).grid(row=3,column=0,columnspan=2,pady=8)
@@ -1400,6 +1457,7 @@ class ZoneTab(ttk.Frame):
         v_quest=_combo(f,3,"Gives quest",quest_ids,"")
         v_x=_spin(f,4,"X",0,99999,wx); v_y=_spin(f,5,"Y",0,9999,wy)
         def ok():
+            self._push_undo()
             entry={"type":v_type.get(),"x":int(v_x.get()),"y":int(v_y.get())}
             if v_dlg.get(): entry["dialogue_id"]=v_dlg.get()
             if v_shop.get(): entry["shop_id"]=v_shop.get()
@@ -1409,12 +1467,14 @@ class ZoneTab(ttk.Frame):
         ttk.Button(f,text="Place",command=ok).grid(row=6,column=0,columnspan=2,pady=8)
 
     def _add_drop_dlg(self,wx,wy):
+        if self._snap_surface.get(): wy=self._find_surface_y(wx,wy,16)
         win,f=self._dlg_base("Place Item Drop")
         items=list(self._items.keys()) or ["wood"]
         v_item=_combo_e(f,0,"Item ID",items,items[0])
         v_qty=_spin(f,1,"Quantity",1,999,1)
         v_x=_spin(f,2,"X",0,99999,wx); v_y=_spin(f,3,"Y",0,9999,wy)
         def ok():
+            self._push_undo()
             self._zone.setdefault("item_drops",[]).append({"item_id":v_item.get(),"quantity":int(v_qty.get()),"x":int(v_x.get()),"y":int(v_y.get())})
             self._redraw(); win.destroy()
         ttk.Button(f,text="Place",command=ok).grid(row=4,column=0,columnspan=2,pady=8)
@@ -1444,6 +1504,7 @@ class ZoneTab(ttk.Frame):
         v_tz=_combo_e(f,4,"Target zone",zones,zones[0] if zones else "")
         v_lbl=_field(f,5,"Label (optional)","")
         def ok():
+            self._push_undo()
             bw,bh=int(v_w.get()),int(v_h.get()); dw,dh=int(v_dw.get()),int(v_dh.get())
             bx,by=wx-bw//2,wy-bh
             entry={"x":bx,"y":by,"w":bw,"h":bh,"door_x":bx+(bw-dw)//2,"door_y":by+bh-dh,
@@ -1477,10 +1538,120 @@ class ZoneTab(ttk.Frame):
         ttk.Button(cbf,text="−",width=3,command=rem_c).pack()
         v_x=_spin(f,1,"X",0,99999,wx); v_y=_spin(f,2,"Y",0,9999,wy)
         def ok():
-            contents=[{"item_id":ct.item(r,"values")[0],"quantity":int(ct.item(r,"values")[1])} for r in ct.get_children()]
+            self._push_undo()
+            contents=[]
+            for r in ct.get_children():
+                v=ct.item(r,"values")
+                try: contents.append({"item_id":v[0],"quantity":int(v[1])})
+                except (ValueError,IndexError): pass
             self._zone.setdefault("chests",[]).append({"x":int(v_x.get()),"y":int(v_y.get()),"w":48,"h":36,"contents":contents})
             self._redraw(); win.destroy()
         ttk.Button(f,text="Place Chest",command=ok).grid(row=3,column=0,columnspan=5,pady=8)
+
+    # ------------------------------------------------------------------
+    # Copy / Paste
+    # ------------------------------------------------------------------
+
+    _KEY_MAP = {"platform":"platforms","save_point":"save_points","exit":"exits",
+                "building":"buildings","npc":"npcs","item_drop":"item_drops",
+                "enemy":"enemies","chest":"chests"}
+
+    def _copy(self):
+        if self._selected_idx is None: return
+        elem=self._elements[self._selected_idx]
+        self._clipboard={"type":elem["type"],"data":deepcopy(elem["data"])}
+        self._status.set(f"Copied {elem['type']} — Ctrl+V to paste")
+
+    def _paste(self):
+        if self._clipboard is None: return
+        self._push_undo()
+        etype=self._clipboard["type"]; data=deepcopy(self._clipboard["data"])
+        data["x"]=data.get("x",0)+40; data["y"]=data.get("y",0)+40
+        self._zone.setdefault(self._KEY_MAP[etype],[]).append(data)
+        self._redraw()
+        self._select_elem(len(self._elements)-1)
+
+    # ------------------------------------------------------------------
+    # Multi-selection (batch editor)
+    # ------------------------------------------------------------------
+
+    def _toggle_multi_sel(self, idx):
+        elem=self._elements[idx]; etype=elem["type"]; data=elem["data"]
+        did=id(data)
+        if did in self._multi_sel_ids:
+            self._multi_sel_ids.discard(did)
+            self._multi_sel_data=[p for p in self._multi_sel_data if id(p[1])!=did]
+        else:
+            self._multi_sel_ids.add(did)
+            self._multi_sel_data.append((etype,data))
+        self._selected_idx=None; self._redraw()
+        if len(self._multi_sel_data)>=2:
+            self._show_batch_props()
+        elif len(self._multi_sel_data)==1:
+            e=self._multi_sel_data[0]; self._multi_sel_ids.clear(); self._multi_sel_data.clear()
+            self._select_elem_by_data(e[1])
+        else:
+            self._clear_props()
+
+    def _clear_multi_sel(self):
+        if self._multi_sel_ids:
+            self._multi_sel_ids.clear(); self._multi_sel_data.clear(); self._redraw()
+
+    def _show_batch_props(self):
+        for w in self._prop_frame.winfo_children(): w.destroy()
+        f=ttk.Frame(self._prop_frame); f.pack(fill="x",padx=8,pady=4)
+        n=len(self._multi_sel_data)
+        types_set={e for e,_ in self._multi_sel_data}
+        same_type=len(types_set)==1; etype=next(iter(types_set)) if same_type else "mixed"
+        ttk.Label(f,text=f"▶ {n} {etype.upper().replace('_',' ')} selected" if same_type
+                  else f"▶ {n} elements selected (mixed types)",
+                  font=("",9,"bold")).grid(row=0,column=0,columnspan=4,sticky="w",pady=(0,6))
+
+        # Type batch apply — enemies only
+        if same_type and etype=="enemy":
+            ttk.Label(f,text="Set type:").grid(row=1,column=0,sticky="e",padx=4)
+            types=list(self._enemies.keys()) or ["basic"]
+            v_t=tk.StringVar(value=types[0])
+            ttk.Combobox(f,textvariable=v_t,values=types,width=12,state="readonly").grid(row=1,column=1,sticky="w")
+            def apply_type():
+                self._push_undo()
+                for _,d in self._multi_sel_data: d["type"]=v_t.get()
+                self._redraw(); self._show_batch_props()
+            ttk.Button(f,text="Apply to all",command=apply_type).grid(row=1,column=2,padx=6)
+
+        # ΔX / ΔY shift — any type
+        row=2 if (same_type and etype=="enemy") else 1
+        ttk.Label(f,text="Shift ΔX:").grid(row=row,column=0,sticky="e",padx=4)
+        v_dx=tk.StringVar(value="0")
+        ttk.Entry(f,textvariable=v_dx,width=6).grid(row=row,column=1,sticky="w")
+        ttk.Label(f,text="ΔY:").grid(row=row,column=2,sticky="e",padx=4)
+        v_dy=tk.StringVar(value="0")
+        ttk.Entry(f,textvariable=v_dy,width=6).grid(row=row,column=3,sticky="w")
+        def apply_shift():
+            try: dx,dy=int(v_dx.get()),int(v_dy.get())
+            except ValueError: messagebox.showwarning("Invalid","ΔX and ΔY must be integers."); return
+            if dx==0 and dy==0: return
+            self._push_undo()
+            for _,d in self._multi_sel_data:
+                d["x"]=d.get("x",0)+dx; d["y"]=d.get("y",0)+dy
+            self._redraw(); self._show_batch_props()
+        ttk.Button(f,text="Shift all",command=apply_shift).grid(row=row,column=4,padx=6)
+        def deselect_all():
+            self._multi_sel_ids.clear(); self._multi_sel_data.clear()
+            self._redraw(); self._clear_props()
+        ttk.Button(f,text="Deselect all",command=deselect_all).grid(row=row+1,column=0,columnspan=5,pady=6)
+
+    # ------------------------------------------------------------------
+    # Surface snap helper
+    # ------------------------------------------------------------------
+
+    def _find_surface_y(self, wx, wy, entity_height=60):
+        best=None
+        for p in self._zone.get("platforms",[]):
+            # Only consider platforms at or below the click point (Y increases downward)
+            if p["x"]<=wx<=p["x"]+p["w"] and p["y"]>=wy:
+                if best is None or p["y"]<best: best=p["y"]
+        return (best-entity_height) if best is not None else wy
 
     # ------------------------------------------------------------------
     # Validation
@@ -1508,6 +1679,16 @@ class ZoneTab(ttk.Frame):
         for n in z.get("npcs",[]):
             if n.get("gives_quest") and n["gives_quest"] not in known_quest:
                 issues.append(f"⚠ Unknown quest ID: '{n['gives_quest']}'")
+        # Spawn reachability checks
+        sx,sy=z.get("spawn",[0,0])
+        platforms=z.get("platforms",[])
+        ground_below=any(p["x"]<=sx<=p["x"]+p["w"] and sy<p["y"]<=sy+300 for p in platforms)
+        if not ground_below:
+            issues.append("⚠ No platform directly below spawn within 300px — player may fall into void.")
+        embedded=any(p["x"]<=sx<=p["x"]+p["w"] and p["y"]<=sy<=p["y"]+p["h"] for p in platforms)
+        if embedded:
+            issues.append("⚠ Spawn point is inside a platform.")
+
         if issues:
             messagebox.showwarning("Zone Validation","\n".join(issues))
         else:

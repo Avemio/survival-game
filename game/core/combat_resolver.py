@@ -13,7 +13,7 @@ import pygame
 
 from game.settings import (
     PLAYER_COLOR, ENEMY_COLOR, ENEMY_HIT_COLOR,
-    HITSTOP_DURATION,
+    HITSTOP_DURATION, ENEMY_ACTIVE_RADIUS,
 )
 from game.systems.effects  import apply_status
 from game.systems.assets   import get as _assets
@@ -33,7 +33,13 @@ class CombatResolver:
         e       = self._e
         living  = []
         for enemy in e.enemies:
-            enemy.update(dt, e.player, e.platforms)
+            # Skip AI + physics for enemies beyond the active radius — they'll
+            # activate naturally once the player approaches.
+            if abs(enemy.rect.centerx - e.player.rect.centerx) > ENEMY_ACTIVE_RADIUS:
+                if enemy.alive:
+                    living.append(enemy)
+                continue
+            enemy.update(dt, e.player, e.platform_grid)
             if enemy.pending_projectiles:
                 e.projectiles.extend(enemy.pending_projectiles)
                 enemy.pending_projectiles.clear()
@@ -115,7 +121,7 @@ class CombatResolver:
     def update_projectiles(self, dt: float) -> None:
         e = self._e
         for proj in e.projectiles:
-            proj.update(dt, e.platforms, e.wind)
+            proj.update(dt, e.platform_grid, e.wind)
             if not proj.alive:
                 continue
             if proj.owner == "enemy":
@@ -143,7 +149,7 @@ class CombatResolver:
     def update_active_attacks(self, dt: float) -> None:
         e = self._e
         for attack in e.active_attacks:
-            attack.update(dt, e.platforms, e.enemies, e.player)
+            attack.update(dt, e.platform_grid, e.enemies, e.player)
         e.active_attacks[:] = [a for a in e.active_attacks if a.alive]
 
     # ------------------------------------------------------------------

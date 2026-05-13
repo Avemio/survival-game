@@ -39,7 +39,7 @@ class _AttackBase:
         if self.status_def:
             apply_status(target, self.status_def)
 
-    def update(self, dt, platforms, enemies, player):
+    def update(self, dt, platform_grid, enemies, player):
         raise NotImplementedError
 
     def draw(self, screen, camera):
@@ -72,7 +72,7 @@ class WaveAttack(_AttackBase):
 
         self.rect = pygame.Rect(int(self._origin_x), self._origin_y - self.height, 1, self.height)
 
-    def update(self, dt, platforms, enemies, player):
+    def update(self, dt, platform_grid, enemies, player):
         dist = abs(self.speed) * dt
         self.traveled += dist
         if self.traveled >= self.max_distance:
@@ -146,7 +146,7 @@ class AreaAttack(_AttackBase):
         dy = center[1] - self.cy
         return dx * dx + dy * dy <= self.radius * self.radius
 
-    def update(self, dt, platforms, enemies, player):
+    def update(self, dt, platform_grid, enemies, player):
         self.timer -= dt
         if self.timer <= 0:
             self.alive = False
@@ -194,7 +194,7 @@ class AuraAttack(_AttackBase):
         dy = center[1] - cy
         return dx * dx + dy * dy <= self.radius * self.radius
 
-    def update(self, dt, platforms, enemies, player):
+    def update(self, dt, platform_grid, enemies, player):
         self.timer -= dt
         if self.timer <= 0:
             self.alive = False

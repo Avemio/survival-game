@@ -45,6 +45,7 @@
 | `world/scene.py` | Base class for game scenes/zones — on_enter/on_exit lifecycle hooks; Zone inherits this |
 | `world/world.py` | Owns the active zone + all data registries; engine talks here, not to Zone directly |
 | `world/zone.py` | Loads a single zone JSON file; builds platforms, enemies, save points, item drops, NPCs, buildings |
+| `world/platform_grid.py` | Spatial bucket index — O(1) platform lookups for collision (query_rect) and draw culling (query_screen) |
 
 ## ui/
 | File | Purpose |
