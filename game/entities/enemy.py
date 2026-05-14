@@ -76,6 +76,8 @@ class Enemy(Entity):
         self.deaggro_range   = stats.get("deaggro_range",   ENEMY_DEAGGRO_RANGE)
         self.attack_range    = stats.get("attack_range",    ENEMY_ATTACK_RANGE)
         self.attack_damage   = stats.get("attack_damage",   ENEMY_ATTACK_DAMAGE)
+        self.attack_hitbox_w = stats.get("attack_hitbox_w", None)  # None = use ATTACK_WIDTH default
+        self.attack_hitbox_h = stats.get("attack_hitbox_h", None)  # None = use ATTACK_HEIGHT default
         self.attack_cooldown = stats.get("attack_cooldown", ENEMY_ATTACK_COOLDOWN)
         self.patrol_radius   = stats.get("patrol_radius",   ENEMY_PATROL_RADIUS)
         self._spawn_x        = float(x)   # leash anchor — enemy won't patrol past ± patrol_radius
@@ -238,7 +240,11 @@ class Enemy(Entity):
                 )
                 self.pending_projectiles.append(proj)
             else:
-                self.active_hitbox = AttackHitbox(self, self.attack_damage)
+                self.active_hitbox = AttackHitbox(
+                    self, self.attack_damage,
+                    width=self.attack_hitbox_w,
+                    height=self.attack_hitbox_h,
+                )
             self._attack_timer = self.attack_cooldown
             self.state         = EnemyState.CHASE
 

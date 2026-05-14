@@ -30,6 +30,7 @@ Zone editor controls:
 
 import json
 import os
+import shutil
 import sys
 import tkinter as tk
 from tkinter import ttk, messagebox, colorchooser, simpledialog, filedialog
@@ -226,9 +227,22 @@ class EnemyTab(ttk.Frame):
         self._v_deaggro= _spin(f,r,"De-aggro range",   0,3000,500);r+=1
         self._v_atk_r  = _spin(f,r,"Attack range",     0,500,65);  r+=1
         self._v_atk_d  = _spin(f,r,"Attack damage",    0,999,15);  r+=1
+        self._v_atk_hw = _spin(f,r,"Atk hitbox W",     1,500,55);  r+=1
+        self._v_atk_hh = _spin(f,r,"Atk hitbox H",     1,500,64);  r+=1
         self._v_atk_cd = _spin(f,r,"Attack cooldown",  0.1,10,1.5,0.1); r+=1
         self._v_patrol = _spin(f,r,"Patrol radius",    0,5000,200);r+=1
-        self._v_sprite = _field(f,r,"Sprite name","enemy_basic"); r+=1
+        ttk.Label(f, text="Sprite name").grid(row=r, column=0, sticky="w", pady=2, padx=4)
+        self._v_sprite = tk.StringVar(value="enemy_basic")
+        spr_row = ttk.Frame(f)
+        spr_row.grid(row=r, column=1, sticky="ew", padx=(4,4), pady=2)
+        ttk.Entry(spr_row, textvariable=self._v_sprite, width=14).pack(side="left", fill="x", expand=True)
+        ttk.Button(spr_row, text="Browse…", command=self._browse_sprite).pack(side="left", padx=(4,0))
+        r += 1
+        self._preview_img = None
+        self._preview_lbl = ttk.Label(f, text="No sprite loaded", anchor="center",
+                                      relief="sunken", width=20)
+        self._preview_lbl.grid(row=r, column=0, columnspan=2, pady=(2,6), padx=4, sticky="ew")
+        r += 1
         ttk.Label(f,text="Drops:",font=("",9,"bold")).grid(
             row=r,column=0,sticky="w",pady=(8,2),padx=4); r+=1
         df = ttk.Frame(f); df.grid(row=r,column=0,columnspan=2,sticky="ew"); r+=1
@@ -256,11 +270,61 @@ class EnemyTab(ttk.Frame):
         self._v_speed.set(d.get("speed",80));  self._v_cspeed.set(d.get("chase_speed",180))
         self._v_aggro.set(d.get("aggro_range",300)); self._v_deaggro.set(d.get("deaggro_range",500))
         self._v_atk_r.set(d.get("attack_range",65)); self._v_atk_d.set(d.get("attack_damage",15))
+        self._v_atk_hw.set(d.get("attack_hitbox_w",55)); self._v_atk_hh.set(d.get("attack_hitbox_h",64))
         self._v_atk_cd.set(d.get("attack_cooldown",1.5)); self._v_patrol.set(d.get("patrol_radius",200))
-        self._v_sprite.set(d.get("sprite","enemy_basic"))
+        spr = d.get("sprite","enemy_basic")
+        self._v_sprite.set(spr)
+        self._load_preview(spr)
         self._dtree.delete(*self._dtree.get_children())
         for drop in d.get("drops",[]):
             self._dtree.insert("","end",values=(drop.get("item_id",""),drop.get("quantity",1),drop.get("chance",1.0)))
+
+    def _browse_sprite(self):
+        path = filedialog.askopenfilename(
+            title="Select sprite PNG",
+            filetypes=[("PNG image", "*.png")]
+        )
+        if not path:
+            return
+        src = Path(path)
+        sprites_dir = DATA_DIR.parent / "assets" / "sprites"
+        sprites_dir.mkdir(parents=True, exist_ok=True)
+        dst = sprites_dir / src.name
+        if src.resolve() != dst.resolve():
+            shutil.copy2(src, dst)
+        name = src.stem
+        self._v_sprite.set(name)
+        try:
+            raw = tk.PhotoImage(file=str(dst))
+            w, h = raw.width(), raw.height()
+            self._v_w.set(w)
+            self._v_h.set(h)
+            self._show_preview(raw, w, h)
+        except Exception as e:
+            messagebox.showwarning("Sprite", f"Could not read image dimensions:\n{e}")
+
+    def _show_preview(self, raw, w, h):
+        factor = max(1, max(w, h) // 64)
+        img = raw.subsample(factor) if factor > 1 else raw
+        self._preview_img = img   # keep reference — PhotoImage is GC'd without it
+        self._preview_lbl.config(image=img, text=f"  {w}×{h} px", compound="right")
+
+    def _load_preview(self, sprite_name):
+        if not sprite_name:
+            self._preview_lbl.config(image="", text="No sprite loaded")
+            self._preview_img = None
+            return
+        path = DATA_DIR.parent / "assets" / "sprites" / f"{sprite_name}.png"
+        if not path.exists():
+            self._preview_lbl.config(image="", text=f"{sprite_name}.png — not found")
+            self._preview_img = None
+            return
+        try:
+            raw = tk.PhotoImage(file=str(path))
+            self._show_preview(raw, raw.width(), raw.height())
+        except Exception:
+            self._preview_lbl.config(image="", text=f"{sprite_name}.png — error reading")
+            self._preview_img = None
 
     def _new(self):
         key = simpledialog.askstring("New Enemy","Enemy type ID:")
@@ -307,6 +371,7 @@ class EnemyTab(ttk.Frame):
                "speed":int(self._v_speed.get()),"chase_speed":int(self._v_cspeed.get()),
                "aggro_range":int(self._v_aggro.get()),"deaggro_range":int(self._v_deaggro.get()),
                "attack_range":int(self._v_atk_r.get()),"attack_damage":int(self._v_atk_d.get()),
+               "attack_hitbox_w":int(self._v_atk_hw.get()),"attack_hitbox_h":int(self._v_atk_hh.get()),
                "attack_cooldown":round(self._v_atk_cd.get(),2),"patrol_radius":int(self._v_patrol.get()),
                "drops":drops}
         if self._selected and self._selected!=key: del self._data[self._selected]
