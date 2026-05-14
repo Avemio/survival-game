@@ -23,7 +23,14 @@
       "Bash(gh pr *)",
       "Bash(pip install *)",
       "PowerShell(Start-Process python -ArgumentList \"main.py\" -WorkingDirectory \"C:\\\\Users\\\\bobby\\\\survival-game\" -PassThru | Select-Object Id)",
-      "Bash(del /Q *.png)"
+      "Bash(del /Q *.png)",
+      "Bash(dir C:\\\\Users\\\\bobby\\\\survival-game\\\\Test Sprites *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\bobby\\\\Projects\\\\survival-game\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\bobby\\\\OneDrive\\\\Documents\\\\Claude Code\" -Recurse | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\bobby\\\\.claude\" -Recurse -File | Where-Object { $_.LastWriteTime -gt \\(Get-Date\\).AddDays\\(-2\\) } | Select-Object FullName, LastWriteTime | Sort-Object LastWriteTime -Descending | Select-Object -First 20)",
+      "Skill(update-config)"
     ]
   }
 }

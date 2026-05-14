@@ -7,18 +7,23 @@
 | File | Purpose |
 |------|---------|
 | `main.py` | Entry point — initializes pygame, creates engine, starts game loop |
-| `settings.py` | All constants: screen size, FPS, colors, physics values, tuning numbers |
 | `FILE_MAP.md` | This file — map of every file's purpose |
 | `requirements.txt` | Python dependencies |
-| `save.json` | Auto-generated save file — zone, player position/health/inventory, collected zone drops |
+| `package.py` | Build script — `python package.py all` → dist/survival-game/ and dist/survival-game-editor/ |
+| `GAME_GUIDE.md` | Player-facing controls and feature reference |
+| `EDITOR_GUIDE.md` | Content editor usage guide |
+| `README.md` | Project overview |
+| `config.json` | Runtime config — volume, resolution (written by settings menu) |
+| `save.json` | Auto-generated save file — not committed (in .gitignore) |
 
 ## core/
 | File | Purpose |
 |------|---------|
-| `core/engine.py` | Main game loop, clock, screen surface, top-level update/draw calls (~730 lines) |
-| `core/camera.py` | Scrolling camera — tracks player, converts world coords to screen coords |
+| `core/engine.py` | Main game loop, clock, screen surface, top-level update/draw calls, GameState enum |
+| `core/camera.py` | Scrolling camera — tracks player, world-bounds clamping, shake, Y-lerp |
 | `core/combat_resolver.py` | All hit resolution, enemy kill, projectile collision, particle spawning, XP/drop/quest routing |
 | `core/input_handler.py` | All KEYDOWN dispatch, item use registry, ability/arrow firing, interact handling |
+| `core/particles.py` | Particle + DamageNumber data classes — shared by engine and combat_resolver |
 
 ## entities/
 | File | Purpose |
@@ -54,6 +59,7 @@
 | `ui/menus.py` | CraftingMenu overlay — recipe list, ingredient counts, cursor nav, feedback flash |
 | `ui/dialogue.py` | DialogueBox — word-wrapped NPC dialogue panel above hotbar, advances on E |
 | `ui/pause_menu.py` | PauseMenu overlay — controls reference + Resume/Quit; opened by Esc during gameplay |
+| `ui/notifications.py` | Right-side fading notification queue — push(text, color, duration, big) |
 
 ## data/
 | File | Purpose |
@@ -65,6 +71,7 @@
 | `data/dialogue.json` | Dialogue scripts keyed by dialogue_id — ordered list of lines per script |
 | `data/zones/zone_01.json` | First zone — platforms, enemy spawns, save points, item drops, NPC, building |
 | `data/zones/zone_01_interior.json` | Interior zone for the Abandoned Cabin — entered via building door |
+| `data/zones/zone_02.json` | Second zone — varied enemies (basic/heavy/fast/archer), 2 save points, chest with ability scroll |
 
 ## tools/
 | File | Purpose |
@@ -100,10 +107,12 @@
 | `ui/quest_log.py` | Quest log overlay (J key) — active quest progress bars + completed list |
 | `ui/skill_menu.py` | Skill point spending overlay (K key) — 5 stat upgrades, pauses the world |
 
-## data/ (additional)
+## .claude/skills/
 | File | Purpose |
 |------|---------|
-| `data/achievements.json` | Achievement definitions — name, desc, stat to track, goal threshold |
-| `data/abilities.json` | All ability definitions — type, damage, status_effect, mana_cost, cooldown, color, sound |
+| `.claude/skills/end-session/SKILL.md` | Full session-close checklist — commit, FILE_MAP, memory sync, Second Brain, session review |
+| `.claude/skills/update-memory/SKILL.md` | Syncs all memory tiers against git log + codebase; rewrites anything stale |
+| `.claude/skills/memory-audit/SKILL.md` | Skeptic pass — finds contradictions, stale refs, undocumented decisions; reports only |
+| `data/achievements.json` | Achievement definitions — id, name, desc, stat to track, goal threshold |
+| `data/abilities.json` | All ability definitions — type, damage, status_effect, mana_cost, cooldown |
 | `data/shops.json` | Shop definitions — name, buy_rate, inventory (item_id, price, stock) |
-| `data/quests.json` | Quest definitions — name, type (kill/collect/kill_any), target, count, XP+gold rewards |

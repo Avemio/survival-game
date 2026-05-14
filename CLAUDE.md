@@ -15,6 +15,21 @@
 
 ---
 
+## Skills
+
+Project-specific skills live in `.claude/skills/`. Invoke them with `/skill-name`.
+
+| Skill | Invoke | What it does |
+|-------|--------|--------------|
+| `end-session` | `/end-session` | Full close-of-session checklist — commit, FILE_MAP, memory sync, Second Brain update, session review |
+| `update-memory` | `/update-memory` | Syncs all memory tiers against git log + codebase; rewrites anything stale |
+| `memory-audit` | `/memory-audit` | Skeptic pass — finds contradictions, stale references, undocumented decisions, and gaps the sync pass misses. Reports only, no edits |
+
+Run `/end-session` at the end of every session.
+Run `/memory-audit` when something feels off or memory hasn't been audited in a while.
+
+---
+
 ## Memory systems
 
 **Two tiers — both matter:**
