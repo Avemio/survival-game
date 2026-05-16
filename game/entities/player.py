@@ -23,6 +23,7 @@ from game.settings import (
 
 _COYOTE_TIME      = 0.10   # seconds of coyote grace after walking off a ledge
 _JUMP_BUFFER_TIME = 0.10   # seconds a jump input is buffered before landing
+_SPRITE_Y_OFFSET  = 4      # pixels: shift all sprite frames down to close the gap to the ground (tune this)
 from game.entities.entity   import Entity
 from game.systems.combat    import AttackHitbox
 from game.systems.inventory import Inventory
@@ -330,23 +331,22 @@ class Player(Entity):
             pygame.draw.rect(screen, (255, 255, 255), r)
             return
 
-        ground_y = r[1] + self.rect.height
+        sy = r[1] + _SPRITE_Y_OFFSET
+        cx = r[0] + self.rect.width // 2   # horizontal centre of hitbox
 
         # Idle: no movement and no jump animation playing
         if not self._keys_held_x and not self._jump_anim_active:
             idle = self._idle_r if self.facing == 1 else self._idle_l
             if idle:
-                surf, foot = idle
-                screen.blit(surf, (r[0] + (self.rect.width - surf.get_width()) // 2,
-                                   ground_y - foot - 1))
+                surf, _ = idle
+                screen.blit(surf, (cx - surf.get_width() // 2, sy))
                 return
 
         # Moving / airborne: use animator
         if self._animator:
             surf = self._animator.surface
             if surf:
-                screen.blit(surf, (r[0] + (self.rect.width - surf.get_width()) // 2,
-                                   ground_y - self._animator.foot_y - 1))
+                screen.blit(surf, (cx - surf.get_width() // 2, sy))
                 return
 
         # Fallback coloured rect
