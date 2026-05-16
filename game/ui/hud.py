@@ -1,7 +1,7 @@
 """
 ui/hud.py
 Heads-up display — drawn in screen space every frame on top of the world.
-Owns: health bar, mana bar, hotbar slots, ability slots (Q/R), wind indicator.
+Owns: health bar, mana bar, hotbar slots, ability slots (Q/R), arrow count, gold.
 Does NOT own: player state (reads it), camera (screen space only).
 
 All surfaces and fonts are created once at init — never inside draw().
@@ -16,16 +16,14 @@ from game.settings import (
     HOTBAR_BG, HOTBAR_BORDER, HOTBAR_SELECTED,
     MANA_BAR_H, MANA_BAR_BG, MANA_BAR_FG, MANA_BAR_BORDER,
     ABILITY_SLOT_SIZE,
-    WIND_MAX, WHITE,
+    WHITE,
     STATUS_COLORS,
     XP_BAR_H, XP_BAR_BG, XP_BAR_FG, XP_BAR_BORDER,
 )
 
-_ITEM_MARGIN = 6
-_WIND_BAR_W  = 100
-_WIND_BAR_H  = 8
-_WIND_HUD_X  = SCREEN_WIDTH - 130
-_WIND_HUD_Y  = 20
+_ITEM_MARGIN  = 6
+_TOP_RIGHT_X  = SCREEN_WIDTH - 130
+_TOP_RIGHT_Y  = 20
 
 _MANA_BAR_X = HUD_HEALTH_X
 _MANA_BAR_Y = HUD_HEALTH_Y + HUD_HEALTH_H + 5
@@ -51,7 +49,7 @@ class HUD:
 
         # Fonts — created once here, never in draw()
         self._font       = pygame.font.SysFont(None, 18)
-        self._wind_font  = pygame.font.SysFont(None, 16)
+        self._small_font  = pygame.font.SysFont(None, 16)
         self._num_font   = pygame.font.SysFont(None, 14)
         self._ab_font    = pygame.font.SysFont(None, 16)
         self._hp_font    = pygame.font.SysFont(None, 16)
@@ -71,8 +69,6 @@ class HUD:
         self._hotbar_x = (SCREEN_WIDTH - total_w) // 2
         self._hotbar_y = SCREEN_HEIGHT - HOTBAR_SLOT_SIZE - HOTBAR_Y_OFFSET
 
-        # Pre-rendered static surfaces
-        self._wind_label = self._wind_font.render("WIND", True, (160, 160, 180))
 
         # Hotbar slot number labels (1–8) — static
         self._slot_nums = [
@@ -118,7 +114,7 @@ class HUD:
     # Draw
     # ------------------------------------------------------------------
 
-    def draw(self, screen, wind=0.0):
+    def draw(self, screen):
         screen.blit(self._bars_bg, (_BARS_BG_X, _BARS_BG_Y))
         self._draw_health_bar(screen)
         self._draw_mana_bar(screen)
@@ -126,7 +122,6 @@ class HUD:
         self._draw_skill_pts(screen)
         self._draw_hotbar(screen)
         self._draw_ability_slots(screen)
-        self._draw_wind(screen, wind)
         self._draw_arrow_count(screen)
         self._draw_gold(screen)
         self._draw_status_effects(screen)
@@ -259,34 +254,6 @@ class HUD:
             pygame.draw.rect(screen, (80, 80, 120), rect, 1)
 
     # ------------------------------------------------------------------
-    # Wind indicator
-    # ------------------------------------------------------------------
-
-    def _draw_wind(self, screen, wind):
-        x, y = _WIND_HUD_X, _WIND_HUD_Y
-        screen.blit(self._wind_label, (x, y))
-        y += self._wind_label.get_height() + 3
-
-        pygame.draw.rect(screen, (50, 50, 60), (x, y, _WIND_BAR_W, _WIND_BAR_H))
-
-        ratio    = max(-1.0, min(1.0, wind / WIND_MAX))
-        center_x = x + _WIND_BAR_W // 2
-        fill_w   = int(abs(ratio) * (_WIND_BAR_W // 2))
-
-        if ratio > 0:
-            bar_x, color = center_x, (220, 180, 80)
-        elif ratio < 0:
-            bar_x, color = center_x - fill_w, (100, 180, 220)
-        else:
-            bar_x, fill_w, color = center_x, 0, (160, 160, 180)
-
-        if fill_w > 0:
-            pygame.draw.rect(screen, color, (bar_x, y, fill_w, _WIND_BAR_H))
-
-        pygame.draw.rect(screen, (100, 100, 120), (x, y, _WIND_BAR_W, _WIND_BAR_H), 1)
-        pygame.draw.line(screen, (100, 100, 120), (center_x, y), (center_x, y + _WIND_BAR_H))
-
-    # ------------------------------------------------------------------
     # Arrow count — always shown if player has bow + arrows
     # ------------------------------------------------------------------
 
@@ -297,9 +264,9 @@ class HUD:
             return
         count = inv.count("arrow")
         if count != self._arrow_cache[0]:
-            surf = self._wind_font.render(f"Arrows: {count}", True, (220, 200, 120))
+            surf = self._small_font.render(f"Arrows: {count}", True, (220, 200, 120))
             self._arrow_cache = (count, surf)
-        screen.blit(self._arrow_cache[1], (_WIND_HUD_X, _WIND_HUD_Y + 28))
+        screen.blit(self._arrow_cache[1], (_TOP_RIGHT_X, _TOP_RIGHT_Y))
 
     # ------------------------------------------------------------------
     # XP bar + level
@@ -362,15 +329,15 @@ class HUD:
         screen.blit(self._levelup_surf, (sx, sy))
 
     # ------------------------------------------------------------------
-    # Gold counter (below wind indicator)
+    # Gold counter
     # ------------------------------------------------------------------
 
     def _draw_gold(self, screen):
         gold = self.player.inventory.count("gold")
         if self._gold_cache[0] != gold:
-            surf = self._wind_font.render(f"⬡ {gold}g", True, (255, 210, 30))
+            surf = self._small_font.render(f"⬡ {gold}g", True, (255, 210, 30))
             self._gold_cache = (gold, surf)
-        screen.blit(self._gold_cache[1], (_WIND_HUD_X, _WIND_HUD_Y + 46))
+        screen.blit(self._gold_cache[1], (_TOP_RIGHT_X, _TOP_RIGHT_Y + 18))
 
     # ------------------------------------------------------------------
     # Status effect icons (top of health bar)

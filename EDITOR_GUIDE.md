@@ -115,7 +115,7 @@ Each script is a list of lines shown in order when the player presses E.
 | Type | Key Extra Fields |
 |------|-----------------|
 | `melee` | Width, Height, Knockback |
-| `projectile` | Speed, Gravity (relative to arrow gravity), Pierce, Wind affected |
+| `projectile` | Speed, Gravity (relative to arrow gravity), Pierce |
 | `wave` | Speed, Max distance, Height |
 | `area` | Radius, Duration |
 | `aura` | Radius, Duration, DPS |

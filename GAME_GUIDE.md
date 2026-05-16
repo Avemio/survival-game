@@ -58,8 +58,6 @@ Abilities cost mana (the blue bar under your health). Mana regenerates at 5/sec.
 2. Hold **X** to draw. Use **Up/Down** to aim the trajectory arc.
 3. Release **X** to fire. Each shot consumes one arrow.
 
-Wind (shown top-right) affects arrow trajectory — aim slightly into the wind.
-
 ### Enemy Types
 | Type | HP | Threat |
 |------|----|--------|
@@ -193,14 +191,6 @@ Status effect icons appear as small colored bars next to your health bar.
 
 ---
 
-## Wind
-
-The wind indicator (top-right) shows current wind strength and direction. Wind affects:
-- Arrow trajectory (aim into the wind)
-- Atmospheric streak visuals
-
----
-
 ## Tips
 
 - Enemies respawn when you change zones or die. Gold and resources respawn with them.
@@ -208,4 +198,4 @@ The wind indicator (top-right) shows current wind strength and direction. Wind a
 - The pity system guarantees a rare drop every 8 kills if you haven't had one.
 - Hitstop (brief freeze on hit) means if the world pauses for a frame when you swing — that's normal.
 - You can stand on ledges to kite enemies, but they will jump up to reach you.
-- The bow shows a trajectory arc accounting for gravity and wind — use it to aim precisely.
+- The bow shows a trajectory arc — use it to aim precisely.

@@ -28,6 +28,7 @@ from game.systems.combat    import AttackHitbox
 from game.systems.inventory import Inventory
 from game.systems.assets    import get as _assets
 from game.systems.effects   import tick_all
+from game.systems.sprite_loader import load_character as _load_character
 
 # Module-level constant — avoids recreating this list every handle_input() call
 _HOTBAR_KEYS = [
@@ -93,10 +94,14 @@ class Player(Entity):
         self.aiming    = False
         self.aim_angle = 0.0
 
-        # Sprites — base (facing right) and flipped (facing left), scaled once at init
+        self._keys_held_x    = False  # True while left/right is held
+        self._jump_anim_active = False  # True while jump play-once is running
+
+        # Animated sprites — loaded from data/sprites/kael.json
+        self._animator, self._idle_r, self._idle_l = _load_character("kael")
         _base = _assets().get_sprite_scaled("player", PLAYER_WIDTH, PLAYER_HEIGHT)
-        self._sprite       = _base
-        self._sprite_flip  = pygame.transform.flip(_base, True, False) if _base else None
+        self._sprite      = _base
+        self._sprite_flip = pygame.transform.flip(_base, True, False) if _base else None
 
     @property
     def hotbar_slot(self):
@@ -112,19 +117,23 @@ class Player(Entity):
 
     def handle_input(self, dt):
         if self.stunned:
-            self.velocity.x = 0
+            self.velocity.x   = 0
+            self._keys_held_x = False
             return   # stun blocks all input
 
         keys = pygame.key.get_pressed()
 
         # Horizontal movement (respect slow_factor)
-        self.velocity.x = 0
+        self.velocity.x   = 0
+        self._keys_held_x = False
         if keys[pygame.K_LEFT]  or keys[pygame.K_a]:
-            self.velocity.x = -self.speed * self.slow_factor
-            self.facing     = -1
+            self.velocity.x   = -self.speed * self.slow_factor
+            self.facing       = -1
+            self._keys_held_x = True
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.velocity.x =  self.speed * self.slow_factor
-            self.facing     =  1
+            self.velocity.x   =  self.speed * self.slow_factor
+            self.facing       =  1
+            self._keys_held_x = True
 
         # Hotbar slot selection
         for i, key in enumerate(_HOTBAR_KEYS):
@@ -158,18 +167,27 @@ class Player(Entity):
                 self.on_ground     = False
                 self.jump_held     = True
                 self.jump_time     = 0.0
-                self._coyote_timer = 0.0   # consume coyote window
+                self._coyote_timer = 0.0
+                self._start_jump_anim()
             elif self.jump_held and self.jump_time < MAX_JUMP_TIME and self.velocity.y < 0:
                 self.velocity.y -= JUMP_HOLD_FORCE * dt
                 self.jump_time  += dt
             elif not self.on_ground and not self.jump_held:
-                self._jump_buffer = _JUMP_BUFFER_TIME   # buffer for the next landing
+                self._jump_buffer = _JUMP_BUFFER_TIME
         else:
             self.jump_held = False
 
     # ------------------------------------------------------------------
     # Physics
     # ------------------------------------------------------------------
+
+    def _start_jump_anim(self):
+        """Start the jump play-once animation. No-ops if already playing."""
+        if self._jump_anim_active or not self._animator:
+            return
+        anim = "jump_right" if self.facing == 1 else "jump_left"
+        self._animator.play_once(anim)
+        self._jump_anim_active = True
 
     def apply_gravity(self, dt):
         self.velocity.y += GRAVITY * dt
@@ -205,6 +223,7 @@ class Player(Entity):
                         self.jump_held    = True
                         self.jump_time    = 0.0
                         self.pos.y        = self.rect.y
+                        self._start_jump_anim()
                         break
                     else:
                         self.velocity.y = 0
@@ -255,6 +274,18 @@ class Player(Entity):
         if was_on_ground and not self.on_ground and self.velocity.y > 0:
             self._coyote_timer = _COYOTE_TIME
 
+        if self._animator:
+            if self._jump_anim_active:
+                # Jump plays once fully; clears itself when done
+                if self._animator.finished:
+                    self._jump_anim_active = False
+                else:
+                    self._animator.update(dt)
+            elif self._keys_held_x:
+                r = self.facing == 1
+                self._animator.set_state("run_right" if r else "run_left")
+                self._animator.update(dt)
+
     # ------------------------------------------------------------------
     # Combat helpers
     # ------------------------------------------------------------------
@@ -294,14 +325,35 @@ class Player(Entity):
 
     def draw(self, screen, camera):
         r = camera.apply_tuple(self.rect)
-        if self._sprite and self.hit_flash <= 0:
-            spr = self._sprite_flip if self.facing == -1 else self._sprite
-            screen.blit(spr, (r[0], r[1]))
+
+        if self.hit_flash > 0:
+            pygame.draw.rect(screen, (255, 255, 255), r)
+            return
+
+        ground_y = r[1] + self.rect.height
+
+        # Idle: no movement and no jump animation playing
+        if not self._keys_held_x and not self._jump_anim_active:
+            idle = self._idle_r if self.facing == 1 else self._idle_l
+            if idle:
+                surf, foot = idle
+                screen.blit(surf, (r[0] + (self.rect.width - surf.get_width()) // 2,
+                                   ground_y - foot - 1))
+                return
+
+        # Moving / airborne: use animator
+        if self._animator:
+            surf = self._animator.surface
+            if surf:
+                screen.blit(surf, (r[0] + (self.rect.width - surf.get_width()) // 2,
+                                   ground_y - self._animator.foot_y - 1))
+                return
+
+        # Fallback coloured rect
+        if self._sprite:
+            screen.blit(self._sprite_flip if self.facing == -1 else self._sprite,
+                        (r[0], r[1]))
         else:
-            if self.hit_flash > 0:
-                color = (255, 255, 255)   # white flash on damage
-            elif self.status_effects:
-                color = STATUS_COLORS.get(self.status_effects[0].type, PLAYER_COLOR)
-            else:
-                color = PLAYER_COLOR
+            color = (STATUS_COLORS.get(self.status_effects[0].type, PLAYER_COLOR)
+                     if self.status_effects else PLAYER_COLOR)
             pygame.draw.rect(screen, color, r)

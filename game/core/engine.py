@@ -7,7 +7,6 @@ Does NOT own: game logic, combat, zone data.
 
 import sys
 import math
-import random
 from enum import Enum, auto
 import pygame
 
@@ -20,7 +19,6 @@ from game.settings        import (SCREEN_WIDTH, SCREEN_HEIGHT, FPS, TITLE,
                                    BG_COLOR, PLATFORM_COLOR, ATTACK_COLOR, ENEMY_ATTACK_COLOR,
                                    DEATH_OVERLAY_DURATION, DEATH_TEXT_COLOR,
                                    PLAYER_COLOR, ENEMY_COLOR, ENEMY_HIT_COLOR,
-                                   WIND_MAX, WIND_CHANGE_RATE, WIND_TARGET_MIN, WIND_TARGET_MAX,
                                    AIM_PREVIEW_STEPS, AIM_PREVIEW_STEP_T, AIM_DOT_COLOR,
                                    ARROW_SPEED, ARROW_GRAVITY)
 from game.core.camera        import Camera
@@ -177,21 +175,6 @@ class Engine:
         self.player.reset_to(px, py)
         self._warm_save_points()
 
-        # Wind — drifts slowly toward a random target strength
-        self.wind          = 0.0
-        self._wind_target  = 0.0
-        self._wind_timer   = random.uniform(WIND_TARGET_MIN, WIND_TARGET_MAX)
-
-        # Atmospheric wind streaks (screen-space, purely visual)
-        self._wind_streaks = [
-            {
-                'x':      random.uniform(0, SCREEN_WIDTH),
-                'y':      random.uniform(50, SCREEN_HEIGHT - 80),
-                'length': random.randint(20, 55),
-            }
-            for _ in range(10)
-        ]
-
         # Loot pity: guarantee a rare drop every _PITY_THRESHOLD kills without one
         self._pity_count     = 0
         self._PITY_THRESHOLD = 8
@@ -305,7 +288,6 @@ class Engine:
                 or self.skill_menu.open):
             return
 
-        self._update_wind(dt)
         self.player.update(dt, self.platform_grid)
 
         # Check death BEFORE zone exits (prevents player entering new zone at 0 HP)
@@ -334,7 +316,6 @@ class Engine:
         self.combat.update_particles(dt)
         self.combat.update_damage_numbers(dt)
         self.combat.update_active_attacks(dt)
-        self._update_wind_streaks(dt)
         self.camera.update(self.player.rect, dt)
 
     def _update_item_drops(self):
@@ -493,22 +474,6 @@ class Engine:
             _assets().play_music(self.world.music)
         self.camera.set_bounds(self.world.world_w, self.world.world_h)
 
-    def _update_wind(self, dt):
-        self._wind_timer -= dt
-        if self._wind_timer <= 0:
-            self._wind_target = random.uniform(-WIND_MAX, WIND_MAX)
-            self._wind_timer  = random.uniform(WIND_TARGET_MIN, WIND_TARGET_MAX)
-        self.wind += (self._wind_target - self.wind) * WIND_CHANGE_RATE * dt
-
-    def _update_wind_streaks(self, dt):
-        """Scroll atmospheric streak positions with the wind; wrap at screen edges."""
-        for s in self._wind_streaks:
-            s['x'] += self.wind * dt * 0.8
-            if s['x'] > SCREEN_WIDTH + 60:
-                s['x'] = -60.0
-            elif s['x'] < -60:
-                s['x'] = SCREEN_WIDTH + 60.0
-
     def _respawn(self):
         """Reload from save file and restore the world to its saved state."""
         self.death_timer = 0.0
@@ -569,7 +534,7 @@ class Engine:
         self.camera.update(self.player.rect, 0.0)
 
     def _draw_aim_indicator(self):
-        """Draw a dotted trajectory preview arc including gravity and wind."""
+        """Draw a dotted trajectory preview arc including gravity."""
         angle_rad = math.radians(self.player.aim_angle)
         vx = math.cos(angle_rad) * ARROW_SPEED * self.player.facing
         vy = -math.sin(angle_rad) * ARROW_SPEED
@@ -580,7 +545,6 @@ class Engine:
 
         for i in range(AIM_PREVIEW_STEPS):
             cur_vy += ARROW_GRAVITY * AIM_PREVIEW_STEP_T
-            cur_vx += self.wind    * AIM_PREVIEW_STEP_T
             px     += cur_vx       * AIM_PREVIEW_STEP_T
             py     += cur_vy       * AIM_PREVIEW_STEP_T
 
@@ -600,17 +564,6 @@ class Engine:
             return
 
         self.screen.fill(self.world.bg_color)
-
-        # Atmospheric wind streaks — drawn first, behind everything
-        if abs(self.wind) > 8:
-            streak_color = (52, 52, 62)
-            for s in self._wind_streaks:
-                length = int(s['length'] * abs(self.wind) / WIND_MAX)
-                if length > 3:
-                    x1 = int(s['x'])
-                    x2 = x1 + (length if self.wind > 0 else -length)
-                    pygame.draw.line(self.screen, streak_color,
-                                     (x1, int(s['y'])), (x2, int(s['y'])), 1)
 
         # Draw platforms — only those visible in the camera viewport
         for p in self.platform_grid.query_screen(
@@ -695,7 +648,7 @@ class Engine:
                                  self.camera.apply_tuple(enemy.active_hitbox.rect), 2)
 
         # HUD — drawn last, in screen space (no camera offset)
-        self.hud.draw(self.screen, self.wind)
+        self.hud.draw(self.screen)
 
         # Minimap — over HUD, top-right
         self.minimap.draw(self.screen, self)

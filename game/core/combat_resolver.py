@@ -121,7 +121,7 @@ class CombatResolver:
     def update_projectiles(self, dt: float) -> None:
         e = self._e
         for proj in e.projectiles:
-            proj.update(dt, e.platform_grid, e.wind)
+            proj.update(dt, e.platform_grid)
             if not proj.alive:
                 continue
             if proj.owner == "enemy":

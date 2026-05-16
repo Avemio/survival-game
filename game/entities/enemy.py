@@ -231,7 +231,6 @@ class Enemy(Entity):
                     vx, 0,
                     damage        = self._proj_damage,
                     gravity_factor= self._proj_gravity / 550.0 if self._proj_gravity else 0.0,
-                    wind_affected = False,
                     width         = 14,
                     height        = 4,
                     pierce        = False,

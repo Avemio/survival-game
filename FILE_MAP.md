@@ -34,7 +34,7 @@
 | `entities/item_drop.py` | World item drop — rect, item_id, quantity, color, alive flag, zone_drop_index |
 | `entities/chest.py` | Lootable chest — E key to open, transfers contents to inventory, persists open state |
 | `entities/npc.py` | NPC class — rect, name, color, dialogue lines, [E] Talk proximity prompt |
-| `entities/projectile.py` | Arrow projectile — physics (gravity + wind), platform collision, enemy hit, oriented line draw |
+| `entities/projectile.py` | Arrow projectile — physics (gravity), platform collision, enemy hit, oriented line draw |
 
 ## systems/
 | File | Purpose |
@@ -91,6 +91,8 @@
 | `systems/events.py` | EventBus — two-tier pub/sub (persistent + zone-scoped); engine posts events, systems subscribe |
 | `systems/achievements.py` | AchievementSystem — tracks kills/gold/level/zones/skills via EventBus; unlocks + notifies |
 | `systems/assets.py` | AssetManager singleton — loads sprites + sounds, plays SFX and music, falls back silently |
+| `systems/animator.py` | Animator class — frame sequencing, state switching, per-state FPS, per-frame foot_y alignment |
+| `systems/sprite_loader.py` | Data-driven sprite loader — reads data/sprites/{name}.json, returns Animator + idle surfaces |
 | `systems/effects.py` | StatusEffect system — poison, burn, stun, freeze, slow; tick_all() applied to entities each frame |
 | `systems/active_attacks.py` | Special attack objects — WaveAttack, AreaAttack, AuraAttack; updated and drawn by engine |
 | `systems/abilities.py` | AbilitySystem — reads abilities.json, dispatches to correct attack type, handles mana/item costs |

@@ -79,7 +79,6 @@ class AbilitySystem:
           engine.projectiles    (list)
           engine.enemies        (list)
           engine.player         (Player)
-          engine.wind           (float)
         """
         ab = self.defs.get(ability_id)
         if not ab or not self.can_use(ability_id, owner):
@@ -132,7 +131,6 @@ class AbilitySystem:
             x, y, vx, vy,
             damage       = int(ab.get("damage", 20)),
             gravity_factor = float(ab.get("gravity", 550)) / 550.0,
-            wind_affected  = bool(ab.get("wind_affected", False)),
             width          = w,
             height         = h,
             pierce         = bool(ab.get("pierce", False)),

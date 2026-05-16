@@ -1,9 +1,9 @@
 """
 entities/projectile.py
 A projectile in flight — physics, collision, damage, optional status effect.
-Supports arrows (gravity + wind) and magic projectiles (custom gravity/wind settings).
+Supports arrows (gravity) and magic projectiles (custom gravity settings).
 Owns: position, velocity, gravity, collision, pierce flag.
-Does NOT own: firing logic (engine/abilities), wind value (engine passes it in).
+Does NOT own: firing logic (engine/abilities).
 """
 
 import math
@@ -16,7 +16,6 @@ from game.systems.effects import apply_status
 class Projectile(Entity):
     def __init__(self, x, y, vx, vy, damage,
                  gravity_factor=1.0,
-                 wind_affected=True,
                  width=14,
                  height=4,
                  pierce=False,
@@ -30,19 +29,16 @@ class Projectile(Entity):
         self.alive    = True
         self.already_hit  = set()
 
-        self._gravity      = ARROW_GRAVITY * gravity_factor
-        self._wind_affected = wind_affected
-        self.owner          = owner   # determines what it can hit
+        self._gravity = ARROW_GRAVITY * gravity_factor
+        self.owner    = owner   # determines what it can hit
         self._pierce        = pierce
         self._color         = tuple(color) if color else ARROW_COLOR
         self._status_def    = status_def
         self._w             = width
         self._h             = height
 
-    def update(self, dt, platform_grid, wind):
+    def update(self, dt, platform_grid):
         self.velocity.y += self._gravity * dt
-        if self._wind_affected:
-            self.velocity.x += wind * dt
 
         self.pos.x += self.velocity.x * dt
         self.pos.y += self.velocity.y * dt

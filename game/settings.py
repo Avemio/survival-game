@@ -121,12 +121,6 @@ ARROW_ANGLE_MAX   = 60     # max degrees above/below horizontal
 ARROW_ANGLE_SPEED = 90     # degrees per second while adjusting aim
 ARROW_COLOR       = (220, 200, 120)   # warm yellow — arrow in flight
 
-# Wind
-WIND_MAX            = 110   # max wind force in px/s² (applied to vx each frame)
-WIND_CHANGE_RATE    = 1.8   # lerp factor — how snappily wind approaches its target
-WIND_TARGET_MIN     = 3.0   # seconds before wind picks a new target strength
-WIND_TARGET_MAX     = 8.0   # seconds before wind picks a new target strength
-
 # Aim indicator
 AIM_PREVIEW_STEPS  = 20    # number of dots in the trajectory preview
 AIM_PREVIEW_STEP_T = 0.055 # seconds per step (covers ~1.1s of flight time)
