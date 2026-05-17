@@ -30,9 +30,17 @@ class CraftingSystem:
 
     @staticmethod
     def _load_recipes():
+        import logging
         path = _DATA_DIR / "recipes.json"
-        with open(path) as f:
-            return json.load(f)
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except FileNotFoundError:
+            logging.getLogger(__name__).error("recipes.json not found: %s", path)
+            return {}
+        except json.JSONDecodeError as exc:
+            logging.getLogger(__name__).error("Malformed recipes.json: %s", exc)
+            return {}
 
     # ------------------------------------------------------------------
     # Public API

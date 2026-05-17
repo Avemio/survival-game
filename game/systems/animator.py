@@ -60,7 +60,10 @@ class Animator:
 
     def update(self, dt: float) -> None:
         frames = self._anims.get(self._state)
-        if not frames or len(frames) <= 1:
+        if not frames:
+            return
+        if len(frames) == 1:
+            self._done = True   # single-frame play_once finishes immediately
             return
         if self._done:
             return

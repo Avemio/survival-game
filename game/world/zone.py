@@ -123,8 +123,11 @@ class Zone(Scene):
         self._load(Path(path), enemy_types, item_defs, npc_types, dialogue_data)
 
     def _load(self, path, enemy_types, item_defs, npc_types, dialogue_data):
-        with open(path) as f:
-            data = json.load(f)
+        try:
+            with open(path) as f:
+                data = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Malformed zone JSON {path.name}: {exc}") from exc
 
         self.id       = data.get("id", path.stem)
         self.spawn    = tuple(data.get("spawn") or [0, 0])

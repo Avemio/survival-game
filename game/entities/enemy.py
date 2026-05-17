@@ -30,8 +30,9 @@ from game.settings import (
 from game.entities.entity     import Entity
 from game.systems.combat      import AttackHitbox
 from game.entities.projectile import Projectile
-from game.systems.assets      import get as _assets
-from game.systems.effects     import tick_all
+from game.systems.assets         import get as _assets
+from game.systems.effects        import tick_all
+from game.systems.sprite_loader  import load_character as _load_character
 
 
 class EnemyState(Enum):
@@ -40,9 +41,10 @@ class EnemyState(Enum):
     ATTACK = auto()
 
 
-_WINDUP_DURATION = 0.4   # seconds of orange wind-up before hitbox spawns
-_EDGE_PROBE_W    = 4     # width of the ground-ahead sensor rect
-_EDGE_PROBE_H    = 8     # height — tall enough to catch slightly uneven platforms
+_WINDUP_DURATION  = 0.4   # seconds of orange wind-up before hitbox spawns
+_EDGE_PROBE_W     = 16    # width of the ground-ahead sensor rect
+_EDGE_PROBE_H     = 8     # height — tall enough to catch slightly uneven platforms
+_SPRITE_Y_OFFSET  = 4     # pixels: shift sprite down to close gap to ground (tune per sprite)
 
 
 class Enemy(Entity):
@@ -89,6 +91,7 @@ class Enemy(Entity):
 
         # Ranged AI: projectiles are appended to this list by _do_attack_tick
         # Engine must pass it in via update(); empty list = melee enemy
+        self.can_jump        = bool(stats.get("can_jump", False))
         self._ai_type        = stats.get("ai_type", "melee")  # "melee" or "ranged"
         self._proj_speed     = float(stats.get("proj_speed",    400))
         self._proj_damage    = int(stats.get("proj_damage",     15))
@@ -104,8 +107,10 @@ class Enemy(Entity):
         self.stunned:   bool  = False
         self.slow_factor: float = 1.0
 
-        # Sprites — base (facing right) + flipped (facing left)
-        sprite_name      = stats.get("sprite", "enemy_basic")
+        # Sprites — try animated first, fall back to static scaled sprite
+        sprite_name = stats.get("sprite", "enemy_basic")
+        self._animator, self._idle_r, self._idle_l = _load_character(sprite_name)
+        self._attack_anim_active = False
         _base            = _assets().get_sprite_scaled(sprite_name, w, h)
         self._sprite      = _base
         self._sprite_flip = pygame.transform.flip(_base, True, False) if _base else None
@@ -176,8 +181,7 @@ class Enemy(Entity):
                             self._begin_attack(dx)
                 else:
                     self._do_chase(dx)
-                    # Melee enemies jump toward elevated player
-                    if self.on_ground and player.rect.centery < self.rect.centery - 40:
+                    if self.can_jump and self.on_ground and player.rect.centery < self.rect.centery - 40:
                         self.velocity.y = -JUMP_FORCE * 0.85
 
         elif self.state == EnemyState.ATTACK:
@@ -186,9 +190,25 @@ class Enemy(Entity):
         # Move and resolve collisions
         self._move(dt, platform_grid)
 
+        # Animator update
+        if self._animator:
+            self._update_animator(dt)
+
     # ------------------------------------------------------------------
     # State behaviours
     # ------------------------------------------------------------------
+
+    def _update_animator(self, dt):
+        if self._attack_anim_active:
+            if self._animator.finished:
+                self._attack_anim_active = False
+            else:
+                self._animator.update(dt)
+            return
+        if self.state in (EnemyState.CHASE, EnemyState.PATROL) and abs(self.velocity.x) > 0:
+            anim = "run_right" if self.facing == 1 else "run_left"
+            self._animator.set_state(anim)
+            self._animator.update(dt)
 
     def _do_patrol(self, platform_grid):
         # Leash: don't wander beyond patrol_radius from spawn X — keeps enemies
@@ -218,10 +238,17 @@ class Enemy(Entity):
         self.velocity.x    = 0
         self._windup_timer = _WINDUP_DURATION
         self.state         = EnemyState.ATTACK
+        if self._animator:
+            anim = "attack_right" if self.facing == 1 else "attack_left"
+            if anim in self._animator._anims:
+                self._animator.play_once(anim)
+                self._attack_anim_active = True
 
     def _do_attack_tick(self, dt):
         self.velocity.x    = 0
         self._windup_timer -= dt
+        if self._windup_timer < 0:
+            self._windup_timer = 0.0
         if self._windup_timer <= 0 and self.active_hitbox is None:
             if self._ai_type == "ranged":
                 # Fire a projectile toward the player (facing is already set)
@@ -293,17 +320,33 @@ class Enemy(Entity):
 
     def draw(self, screen, camera):
         r = camera.apply_tuple(self.rect)
-        # Sprite used only in the normal state; colored rect handles hit-flash and windup
-        if self._sprite and self.hit_flash <= 0 and self.state != EnemyState.ATTACK:
+
+        if self.hit_flash > 0:
+            pygame.draw.rect(screen, ENEMY_HIT_COLOR, r)
+        elif self._animator:
+            # Pin the sprite's lowest visible pixel to the hitbox bottom so the
+            # enemy stands on the ground regardless of sprite size vs hitbox size.
+            ground_y = r[1] + r[3]
+            cx       = r[0] + self.rect.width // 2
+            if abs(self.velocity.x) == 0 and not self._attack_anim_active:
+                idle = self._idle_r if self.facing == 1 else self._idle_l
+                if idle:
+                    surf, foot_y = idle
+                    screen.blit(surf, (cx - surf.get_width() // 2, ground_y - foot_y - 1))
+                else:
+                    pygame.draw.rect(screen, ENEMY_WINDUP_COLOR if self.state == EnemyState.ATTACK else ENEMY_COLOR, r)
+            else:
+                surf    = self._animator.surface
+                foot_y  = self._animator.foot_y
+                if surf and foot_y >= 0:
+                    screen.blit(surf, (cx - surf.get_width() // 2, ground_y - foot_y - 1))
+                else:
+                    pygame.draw.rect(screen, ENEMY_COLOR, r)
+        elif self._sprite and self.state != EnemyState.ATTACK:
             spr = self._sprite_flip if self.facing == -1 else self._sprite
             screen.blit(spr, (r[0], r[1]))
         else:
-            if self.hit_flash > 0:
-                color = ENEMY_HIT_COLOR
-            elif self.state == EnemyState.ATTACK:
-                color = ENEMY_WINDUP_COLOR
-            else:
-                color = ENEMY_COLOR
+            color = ENEMY_WINDUP_COLOR if self.state == EnemyState.ATTACK else ENEMY_COLOR
             pygame.draw.rect(screen, color, r)
 
         # Health bar — shown above enemy whenever health < max

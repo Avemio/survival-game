@@ -95,11 +95,12 @@ class Player(Entity):
         self.aiming    = False
         self.aim_angle = 0.0
 
-        self._keys_held_x    = False  # True while left/right is held
-        self._jump_anim_active = False  # True while jump play-once is running
+        self._keys_held_x      = False  # True while left/right is held
+        self._jump_anim_active   = False  # True while jump play-once is running
+        self._attack_anim_active = False  # True while attack play-once is running
 
-        # Animated sprites — loaded from data/sprites/kael.json
-        self._animator, self._idle_r, self._idle_l = _load_character("kael")
+        # Animated sprites — loaded from data/sprites/player.json
+        self._animator, self._idle_r, self._idle_l = _load_character("player")
         _base = _assets().get_sprite_scaled("player", PLAYER_WIDTH, PLAYER_HEIGHT)
         self._sprite      = _base
         self._sprite_flip = pygame.transform.flip(_base, True, False) if _base else None
@@ -149,6 +150,7 @@ class Player(Entity):
                 and not self.aiming):
             self.attack_cooldown = ATTACK_COOLDOWN
             self.active_hitbox   = AttackHitbox(self, damage=self.attack_damage)
+            self._start_attack_anim()
 
         # Bow aim
         if self.aiming:
@@ -183,12 +185,19 @@ class Player(Entity):
     # ------------------------------------------------------------------
 
     def _start_jump_anim(self):
-        """Start the jump play-once animation. No-ops if already playing."""
         if self._jump_anim_active or not self._animator:
             return
         anim = "jump_right" if self.facing == 1 else "jump_left"
         self._animator.play_once(anim)
         self._jump_anim_active = True
+
+    def _start_attack_anim(self):
+        if not self._animator:
+            return
+        anim = "attack_right" if self.facing == 1 else "attack_left"
+        if anim in self._animator._anims:
+            self._animator.play_once(anim)
+            self._attack_anim_active = True
 
     def apply_gravity(self, dt):
         self.velocity.y += GRAVITY * dt
@@ -276,8 +285,12 @@ class Player(Entity):
             self._coyote_timer = _COYOTE_TIME
 
         if self._animator:
-            if self._jump_anim_active:
-                # Jump plays once fully; clears itself when done
+            if self._attack_anim_active:
+                if self._animator.finished:
+                    self._attack_anim_active = False
+                else:
+                    self._animator.update(dt)
+            elif self._jump_anim_active:
                 if self._animator.finished:
                     self._jump_anim_active = False
                 else:
@@ -318,7 +331,9 @@ class Player(Entity):
         self.aiming            = False
         self._coyote_timer     = 0.0
         self._jump_buffer      = 0.0
-        self._landing_velocity = 0.0
+        self._landing_velocity   = 0.0
+        self._jump_anim_active   = False
+        self._attack_anim_active = False
 
     # ------------------------------------------------------------------
     # Draw
@@ -334,8 +349,8 @@ class Player(Entity):
         sy = r[1] + _SPRITE_Y_OFFSET
         cx = r[0] + self.rect.width // 2   # horizontal centre of hitbox
 
-        # Idle: no movement and no jump animation playing
-        if not self._keys_held_x and not self._jump_anim_active:
+        # Idle: no movement and no one-shot animation playing
+        if not self._keys_held_x and not self._jump_anim_active and not self._attack_anim_active:
             idle = self._idle_r if self.facing == 1 else self._idle_l
             if idle:
                 surf, _ = idle

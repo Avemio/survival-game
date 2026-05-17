@@ -6,9 +6,9 @@
     "left":  "idle_left.png"
   },
   "animations": {
-    "run_right":  { "prefix": "run_right",  "frames": 5, "fps": 14.0 },
-    "run_left":   { "prefix": "run_left",   "frames": 5, "fps": 14.0 },
-    "jump_right": { "prefix": "jump_right", "frames": 7 },
-    "jump_left":  { "prefix": "jump_left",  "frames": 7 }
+    "run_right":  { "prefix": "run_right",  "frames": 6, "fps": 14.0 },
+    "run_left":   { "prefix": "run_left",   "frames": 6, "fps": 14.0 },
+    "jump_right": { "prefix": "jump_right", "frames": 8 },
+    "jump_left":  { "prefix": "jump_left",  "frames": 8 }
   }
 }

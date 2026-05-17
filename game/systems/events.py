@@ -43,9 +43,15 @@ class EventBus:
                 pass
 
     def post(self, event_type: str, **data) -> None:
+        import logging
         for cb in _chain(self._persistent.get(event_type, ()),
                          self._zone_local.get(event_type, ())):
-            cb(**data)
+            try:
+                cb(**data)
+            except Exception:
+                logging.getLogger(__name__).error(
+                    "Event listener %r raised on '%s'", cb, event_type, exc_info=True
+                )
 
     def clear_zone_listeners(self) -> None:
         """Clear zone-scoped subscriptions — call at the start of every zone transition."""

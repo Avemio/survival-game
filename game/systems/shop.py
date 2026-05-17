@@ -25,9 +25,17 @@ _DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
 class ShopSystem:
     def __init__(self):
+        import logging
         path = _DATA_DIR / "shops.json"
-        with open(path) as f:
-            self._defs: dict = json.load(f)
+        try:
+            with open(path) as f:
+                self._defs: dict = json.load(f)
+        except FileNotFoundError:
+            logging.getLogger(__name__).error("shops.json not found: %s", path)
+            self._defs = {}
+        except json.JSONDecodeError as exc:
+            logging.getLogger(__name__).error("Malformed shops.json: %s", exc)
+            self._defs = {}
 
     def get(self, shop_id: str) -> dict | None:
         return self._defs.get(shop_id)

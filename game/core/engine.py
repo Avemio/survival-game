@@ -31,7 +31,6 @@ from game.ui.dialogue         import DialogueBox
 from game.ui.pause_menu       import PauseMenu
 from game.ui.inventory_screen import InventoryScreen
 from game.ui.title_screen     import TitleScreen
-from game.ui.minimap          import Minimap
 from game.systems.assets      import get as _assets
 from game.systems.saving      import save_game, load_game
 from game.systems.crafting    import CraftingSystem
@@ -81,8 +80,8 @@ class Engine:
             py = player_data.get("y", self.world.spawn[1])
             self.player.max_health    = player_data.get("max_health",    self.player.max_health)
             self.player.max_mana      = player_data.get("max_mana",      self.player.max_mana)
-            self.player.health        = player_data.get("health",        self.player.max_health)
-            self.player.mana          = float(player_data.get("mana",    self.player.max_mana))
+            self.player.health        = max(0, min(self.player.max_health, player_data.get("health", self.player.max_health)))
+            self.player.mana          = max(0.0, min(float(self.player.max_mana), float(player_data.get("mana", self.player.max_mana))))
             self.player.level         = player_data.get("level",         1)
             self.player.xp            = player_data.get("xp",            0)
             self.player.xp_to_next    = player_data.get("xp_to_next",   100)
@@ -133,7 +132,6 @@ class Engine:
         self.achievements.subscribe_to(self.events)
         if _pending_ach:
             self.achievements.load(_pending_ach)
-        self.minimap          = Minimap()
 
         # Combat and input subsystems (extracted from engine for separation of concerns)
         self.combat = CombatResolver(self)
@@ -233,6 +231,9 @@ class Engine:
         self.player.inventory      = Inventory(size=INVENTORY_SLOTS)
         self.player.ability_slots  = [None, None]
         self.player.ability_cooldowns = [0.0, 0.0]
+        self.player.status_effects.clear()
+        self.player.stunned        = False
+        self.player.slow_factor    = 1.0
         # Reset quest state for a true new game
         self.quest_system._active.clear()
         self.quest_system._done.clear()
@@ -408,6 +409,10 @@ class Engine:
         self.active_attacks.clear()
         self.particles.clear()
         self.damage_numbers.clear()
+        self.player.active_hitbox  = None
+        self.player.status_effects.clear()
+        self.player.stunned        = False
+        self.player.slow_factor    = 1.0
 
         self._on_zone_loaded()
         self.events.post("zone_entered", zone_id=self.world.zone_id)
@@ -495,8 +500,8 @@ class Engine:
             py = player_data.get("y", self.world.spawn[1])
             self.player.max_health    = player_data.get("max_health",    self.player.max_health)
             self.player.max_mana      = player_data.get("max_mana",      self.player.max_mana)
-            self.player.health        = player_data.get("health",        self.player.max_health)
-            self.player.mana          = float(player_data.get("mana",    self.player.max_mana))
+            self.player.health        = max(0, min(self.player.max_health, player_data.get("health", self.player.max_health)))
+            self.player.mana          = max(0.0, min(float(self.player.max_mana), float(player_data.get("mana", self.player.max_mana))))
             self.player.level         = player_data.get("level",         1)
             self.player.xp            = player_data.get("xp",            0)
             self.player.xp_to_next    = player_data.get("xp_to_next",   100)
@@ -650,8 +655,6 @@ class Engine:
         # HUD — drawn last, in screen space (no camera offset)
         self.hud.draw(self.screen)
 
-        # Minimap — over HUD, top-right
-        self.minimap.draw(self.screen, self)
 
         # Crafting menu — drawn over HUD when open
         self.crafting_menu.draw(self.screen)

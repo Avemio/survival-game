@@ -20,20 +20,28 @@ _DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
 class World:
     def __init__(self, zone_id):
-        with open(_DATA_DIR / "enemies.json") as f:
-            self._enemy_types = json.load(f)
-        with open(_DATA_DIR / "items.json") as f:
-            self._item_defs = json.load(f)
-        with open(_DATA_DIR / "npcs.json") as f:
-            self._npc_types = json.load(f)
-        with open(_DATA_DIR / "dialogue.json") as f:
-            self._dialogue_data = json.load(f)
+        self._enemy_types   = self._load_json("enemies.json")
+        self._item_defs     = self._load_json("items.json")
+        self._npc_types     = self._load_json("npcs.json")
+        self._dialogue_data = self._load_json("dialogue.json")
 
         self.zone = self._load_zone(zone_id)
 
     # ------------------------------------------------------------------
     # Zone management
     # ------------------------------------------------------------------
+
+    def _load_json(self, filename: str) -> dict:
+        path = _DATA_DIR / filename
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except FileNotFoundError:
+            _log.error("Data file not found: %s", path)
+            return {}
+        except json.JSONDecodeError as exc:
+            _log.error("Malformed JSON in %s: %s", filename, exc)
+            return {}
 
     def _load_zone(self, zone_id):
         path = _DATA_DIR / "zones" / f"{zone_id}.json"

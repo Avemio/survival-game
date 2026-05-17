@@ -70,15 +70,17 @@ data/
 ---
 
 ## Current status
-**Last completed:** Big session 2026-05-10 — all systems built, fully playable  
-**Next:** M13 — Animated Sprites (just add PNG files to assets/sprites/), or queued items below
+**Last completed:** 2026-05-16 — M13 Animated Sprites (Kael sprites working, Animator + SpriteLoader, wind removed)
+**Next:** Enemy sprites (idle+run left/right per enemy type) → wire enemy.py to SpriteLoader
 
 **What's built:** trading (gold/shop/shopkeeper), XP/leveling, chests, title screen, quest system
-(4 quests, NPC givers, J key log), archer enemy type (ai_type="ranged"), minimap, content editor
+(4 quests, NPC givers, J key log), archer enemy type (ai_type="ranged"), content editor
 (tools/editor.py, 8 tabs), packaging (package.py → dist/), zone_02, world-bounds camera clamping,
-cross-reference validation, 20 bugs fixed, O(1) inventory count, pre-rendered UI surfaces
+cross-reference validation, 20 bugs fixed, O(1) inventory count, pre-rendered UI surfaces,
+Animator system (play_once + foot_y pinning), data-driven SpriteLoader (data/sprites/{name}.json),
+Kael animated sprites (idle/run/jump, input-driven FSM)
 
-**Queued:** Animated sprites, skill tree / stat spending, settings menu, day/night cycle, NPC schedules
+**Queued:** Enemy sprites, settings menu, sound effects, day/night cycle, NPC schedules
 
 Full detail in `.claude` project memory — read architecture.md and project_milestones.md.
 

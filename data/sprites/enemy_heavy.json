@@ -1,0 +1,14 @@
+{
+  "base_path": "assets/sprites/enemy_heavy",
+  "fps": 8.0,
+  "idle": {
+    "right": "idle_right.png",
+    "left":  "idle_left.png"
+  },
+  "animations": {
+    "run_right":    { "prefix": "walk_right",   "frames": 6, "fps": 7.0 },
+    "run_left":     { "prefix": "walk_left",    "frames": 6, "fps": 7.0 },
+    "attack_right": { "prefix": "attack_right", "frames": 4, "fps": 10.0 },
+    "attack_left":  { "prefix": "attack_left",  "frames": 4, "fps": 10.0 }
+  }
+}

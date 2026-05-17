@@ -104,7 +104,6 @@
 |------|---------|
 | `ui/inventory_screen.py` | 32-slot grid inventory (I key) — keyboard nav, use/drop items, hotbar mirrors first 8 slots |
 | `ui/shop_menu.py` | Shop overlay — buy/sell panel opened by pressing E near a shopkeeper NPC |
-| `ui/minimap.py` | Compact radar in top-right HUD — player dot, enemies, save points, exits, NPCs, chests |
 | `ui/title_screen.py` | Title screen — New Game / Continue / Quit; shown on every startup |
 | `ui/quest_log.py` | Quest log overlay (J key) — active quest progress bars + completed list |
 | `ui/skill_menu.py` | Skill point spending overlay (K key) — 5 stat upgrades, pauses the world |
