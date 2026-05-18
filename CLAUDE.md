@@ -70,17 +70,19 @@ data/
 ---
 
 ## Current status
-**Last completed:** 2026-05-16 — M13 Animated Sprites (Kael sprites working, Animator + SpriteLoader, wind removed)
-**Next:** Enemy sprites (idle+run left/right per enemy type) → wire enemy.py to SpriteLoader
+**Last completed:** 2026-05-17 — Story redesign (Steve/Caldrath/The Sow), Pixellab sprite pipeline, enemy animation system, 22-review bug sweep
+**Next:** Generate fast + archer enemy sprites (`python tools/generate_sprites.py`), then settings menu (M15)
 
 **What's built:** trading (gold/shop/shopkeeper), XP/leveling, chests, title screen, quest system
 (4 quests, NPC givers, J key log), archer enemy type (ai_type="ranged"), content editor
 (tools/editor.py, 8 tabs), packaging (package.py → dist/), zone_02, world-bounds camera clamping,
-cross-reference validation, 20 bugs fixed, O(1) inventory count, pre-rendered UI surfaces,
+cross-reference validation, O(1) inventory count, pre-rendered UI surfaces,
 Animator system (play_once + foot_y pinning), data-driven SpriteLoader (data/sprites/{name}.json),
-Kael animated sprites (idle/run/jump, input-driven FSM)
+player assassin sprites (idle/run/jump/attack), enemy animation system (foot-pin rendering),
+Sergeant at Arms + City Watchman animated, Pixellab API generator (tools/generate_sprites.py),
+can_jump enemy flag, 22 bugs fixed (EventBus, arrow tunneling, zone transition cleanup, JSON safety)
 
-**Queued:** Enemy sprites, settings menu, sound effects, day/night cycle, NPC schedules
+**Queued:** fast + archer enemy sprites, settings menu, sound effects, day/night cycle, zone redesign for Steve story
 
 Full detail in `.claude` project memory — read architecture.md and project_milestones.md.
 

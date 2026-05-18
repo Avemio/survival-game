@@ -77,13 +77,24 @@
 | File | Purpose |
 |------|---------|
 | `tools/editor.py` | Standalone content editor (Tkinter) — run `python tools/editor.py`; edits all data JSON files; visual zone canvas |
+| `tools/generate_sprites.py` | Pixellab API sprite generator — generates idle/run/attack/jump frames, saves to assets/sprites/, writes data/sprites/ JSON config |
 
 ## assets/
 | Folder | Purpose |
 |--------|---------|
-| `assets/sprites/` | Sprites — drop a PNG and it auto-loads (see naming guide in README) |
+| `assets/sprites/player/` | Player assassin sprites — idle, run, jump, attack (4 frames each, API-generated) |
+| `assets/sprites/enemy_basic/` | City Watchman sprites — idle, run, attack (4 frames each, API-generated) |
+| `assets/sprites/enemy_heavy/` | Sergeant at Arms sprites — idle, walk (6 frames), attack (4 frames) |
 | `assets/sounds/` | SFX (.wav/.ogg) and music tracks (.ogg) — auto-loaded by AssetManager |
 | `assets/fonts/` | Font files |
+
+## data/sprites/
+| File | Purpose |
+|------|---------|
+| `data/sprites/player.json` | Player sprite config — base_path, fps, idle filenames, animation prefixes + frame counts |
+| `data/sprites/enemy_basic.json` | City Watchman sprite config |
+| `data/sprites/enemy_heavy.json` | Sergeant at Arms sprite config (uses walk_ prefix for run states) |
+| `data/sprites/kael.json` | Legacy config (superseded by player.json) |
 
 ## systems/ (additional)
 | File | Purpose |
