@@ -1,0 +1,83 @@
+{
+  "group_id": null,
+  "states": [
+    {
+      "character": {
+        "id": "fc0103b0-f3a3-4d5f-99f6-4f54ed70f336",
+        "name": "A hulking veteran city guard, barrel-chested and slow-moving, wearing a full set of plate armor cobbled together from   mismatched pieces \u2014 one pauldron polished, the other rusted, greaves from a different set entirely. A red sash across   the chest over the armor is the only indication of rank. Open-face great helm, thick boots with iron toe-caps, and a   two-handed war hammer with a worn wooden haft held loosely at his side. Skin weathered, heavy jaw, the look of a man   who has been doing this for twenty years and stopped being surprised by anything. Dark iron and rust tones with dull   red accent. He should read as immovable \u2014 not aggressive, just certain that whatever is coming, he has seen worse.   Pixel art, 32\u00d748px canvas.",
+        "prompt": "A hulking veteran city guard, barrel-chested and slow-moving, wearing a full set of plate armor cobbled together from   mismatched pieces \u2014 one pauldron polished, the other rusted, greaves from a different set entirely. A red sash across   the chest over the armor is the only indication of rank. Open-face great helm, thick boots with iron toe-caps, and a   two-handed war hammer with a worn wooden haft held loosely at his side. Skin weathered, heavy jaw, the look of a man   who has been doing this for twenty years and stopped being surprised by anything. Dark iron and rust tones with dull   red accent. He should read as immovable \u2014 not aggressive, just certain that whatever is coming, he has seen worse.   Pixel art, 32\u00d748px canvas.",
+        "size": {
+          "width": 68,
+          "height": 68
+        },
+        "template_id": "mannequin",
+        "directions": 4,
+        "view": "side",
+        "created_at": "2026-05-17T20:07:45.986093+00:00"
+      },
+      "folder": "A_hulking_veteran_city_guard_barrel-chested_and_sl",
+      "frames": {
+        "rotations": {
+          "south": "A_hulking_veteran_city_guard_barrel-chested_and_sl/rotations/south.png",
+          "west": "A_hulking_veteran_city_guard_barrel-chested_and_sl/rotations/west.png",
+          "east": "A_hulking_veteran_city_guard_barrel-chested_and_sl/rotations/east.png",
+          "north": "A_hulking_veteran_city_guard_barrel-chested_and_sl/rotations/north.png"
+        },
+        "animations": {
+          "Running-b6f39597": {
+            "east": [
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/east/frame_000.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/east/frame_001.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/east/frame_002.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/east/frame_003.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/east/frame_004.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/east/frame_005.png"
+            ],
+            "west": [
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/west/frame_000.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/west/frame_001.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/west/frame_002.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/west/frame_003.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/west/frame_004.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Running-b6f39597/west/frame_005.png"
+            ]
+          },
+          "wind-up_and_swing_of_the_war_hammer-f014569c": {
+            "west": [
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/wind-up_and_swing_of_the_war_hammer-f014569c/west/frame_000.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/wind-up_and_swing_of_the_war_hammer-f014569c/west/frame_001.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/wind-up_and_swing_of_the_war_hammer-f014569c/west/frame_002.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/wind-up_and_swing_of_the_war_hammer-f014569c/west/frame_003.png"
+            ],
+            "east": [
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/wind-up_and_swing_of_the_war_hammer-f014569c/east/frame_000.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/wind-up_and_swing_of_the_war_hammer-f014569c/east/frame_001.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/wind-up_and_swing_of_the_war_hammer-f014569c/east/frame_002.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/wind-up_and_swing_of_the_war_hammer-f014569c/east/frame_003.png"
+            ]
+          },
+          "Walking-0b7bbfc6": {
+            "east": [
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/east/frame_000.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/east/frame_001.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/east/frame_002.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/east/frame_003.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/east/frame_004.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/east/frame_005.png"
+            ],
+            "west": [
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/west/frame_000.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/west/frame_001.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/west/frame_002.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/west/frame_003.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/west/frame_004.png",
+              "A_hulking_veteran_city_guard_barrel-chested_and_sl/animations/Walking-0b7bbfc6/west/frame_005.png"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "3.0",
+  "export_date": "2026-05-17T20:32:23.160171"
+}

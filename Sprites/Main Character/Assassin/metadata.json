@@ -1,0 +1,97 @@
+{
+  "group_id": null,
+  "states": [
+    {
+      "character": {
+        "id": "a00b669a-0789-499f-8a8d-cf2247c30353",
+        "name": "A seasoned freelance assassin, lean and mid-30s, wearing a dark grey-brown leather doublet over a chainmail shirt with    a hood worn down. Fitted trousers tucked into worn knee-high boots, a single pauldron on the left shoulder with a   simple iron vambrace on the right forearm, a short sword scabbard on the hip, leather belt with a few pouches, and   fingerless gloves. Face partially framed by the collar \u2014 lean jaw, some stubble, nothing remarkable, the look of a man    who doesn't want to be described. Dark desaturated browns, charcoals, and muted greys with a single dark burgundy   accent on the doublet collar. Enough armor to suggest he's been in real fights, not enough to suggest he fights fair.   Pixel art, 32\u00d748px canvas.",
+        "prompt": "A seasoned freelance assassin, lean and mid-30s, wearing a dark grey-brown leather doublet over a chainmail shirt with    a hood worn down. Fitted trousers tucked into worn knee-high boots, a single pauldron on the left shoulder with a   simple iron vambrace on the right forearm, a short sword scabbard on the hip, leather belt with a few pouches, and   fingerless gloves. Face partially framed by the collar \u2014 lean jaw, some stubble, nothing remarkable, the look of a man    who doesn't want to be described. Dark desaturated browns, charcoals, and muted greys with a single dark burgundy   accent on the doublet collar. Enough armor to suggest he's been in real fights, not enough to suggest he fights fair.   Pixel art, 32\u00d748px canvas.",
+        "size": {
+          "width": 68,
+          "height": 68
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "side",
+        "created_at": "2026-05-17T20:13:26.287004+00:00"
+      },
+      "folder": "A_seasoned_freelance_assassin_lean_and_mid-30s_wea",
+      "frames": {
+        "rotations": {
+          "south": "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/rotations/south.png",
+          "south-east": "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/rotations/south-east.png",
+          "east": "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/rotations/east.png",
+          "north-east": "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/rotations/north-east.png",
+          "north": "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/rotations/north.png",
+          "north-west": "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/rotations/north-west.png",
+          "west": "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/rotations/west.png",
+          "south-west": "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/rotations/south-west.png"
+        },
+        "animations": {
+          "Two-Footed_Jump-55a75a13": {
+            "west": [
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/west/frame_000.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/west/frame_001.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/west/frame_002.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/west/frame_003.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/west/frame_004.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/west/frame_005.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/west/frame_006.png"
+            ],
+            "east": [
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/east/frame_000.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/east/frame_001.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/east/frame_002.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/east/frame_003.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/east/frame_004.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/east/frame_005.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Two-Footed_Jump-55a75a13/east/frame_006.png"
+            ]
+          },
+          "Running_Jump-bc532614": {
+            "west": [
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/west/frame_000.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/west/frame_001.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/west/frame_002.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/west/frame_003.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/west/frame_004.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/west/frame_005.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/west/frame_006.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/west/frame_007.png"
+            ],
+            "east": [
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/east/frame_000.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/east/frame_001.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/east/frame_002.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/east/frame_003.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/east/frame_004.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/east/frame_005.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/east/frame_006.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running_Jump-bc532614/east/frame_007.png"
+            ]
+          },
+          "Running-1c7805e1": {
+            "west": [
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/west/frame_000.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/west/frame_001.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/west/frame_002.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/west/frame_003.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/west/frame_004.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/west/frame_005.png"
+            ],
+            "east": [
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/east/frame_000.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/east/frame_001.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/east/frame_002.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/east/frame_003.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/east/frame_004.png",
+              "A_seasoned_freelance_assassin_lean_and_mid-30s_wea/animations/Running-1c7805e1/east/frame_005.png"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "3.0",
+  "export_date": "2026-05-17T20:20:57.184112"
+}

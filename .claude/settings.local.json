@@ -30,7 +30,11 @@
       "Bash(Sort-Object FullName)",
       "PowerShell(Get-ChildItem \"C:\\\\Users\\\\bobby\\\\OneDrive\\\\Documents\\\\Claude Code\" -Recurse | ForEach-Object { $_.FullName })",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\bobby\\\\.claude\" -Recurse -File | Where-Object { $_.LastWriteTime -gt \\(Get-Date\\).AddDays\\(-2\\) } | Select-Object FullName, LastWriteTime | Sort-Object LastWriteTime -Descending | Select-Object -First 20)",
-      "Skill(update-config)"
+      "Skill(update-config)",
+      "PowerShell(New-Item *)",
+      "Skill(end-session)",
+      "WebFetch(domain:api.pixellab.ai)",
+      "Bash(pip show *)"
     ]
   }
 }
